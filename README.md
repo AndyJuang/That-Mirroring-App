@@ -1,4 +1,4 @@
-# That Mirror 📱🖥️
+# That Mirror App 📱🖥️
 
 [English](#english) | [繁體中文](#繁體中文)
 
@@ -26,7 +26,7 @@ A native, lightweight macOS application built with Swift and SwiftUI that allows
 
 ### 🚀 How to Use
 
-1. **Download the app** from the [Releases page](https://github.com/AndyJuang/That-Mirror/releases) or build it yourself.
+1. **Download the app** from the [Releases page](https://github.com/AndyJuang/That-Mirror-App/releases) or build it yourself.
 2. **Connect** your iPhone or iPad to your Mac using a Lightning or USB-C cable.
 3. **Launch** `iPhoneMirror.app`.
 4. If this is your first time, you may need to unlock your iOS device and tap **"Trust This Computer"**.
@@ -91,7 +91,7 @@ codesign --sign - --force --deep iPhoneMirror.app
 
 ### 🚀 如何使用
 
-1. 到本專案的 [Releases 頁面](https://github.com/AndyJuang/That-Mirror/releases) 下載最新的 `.dmg` 檔案，或是從原始碼自己編譯。
+1. 到本專案的 [Releases 頁面](https://github.com/AndyJuang/That-Mirror-App/releases) 下載最新的 `.dmg` 檔案，或是從原始碼自己編譯。
 2. 使用傳輸線將 iPhone / iPad **連上 Mac**。
 3. **開啟** `iPhoneMirror.app`。
 4. 第一次使用時，請解鎖手機畫面並點選 **「信任這部電腦」**。
