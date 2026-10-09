@@ -1021,6 +1021,8 @@ class PreviewNSView: NSView {
     private var mouseDownPoint: CGPoint?
     private var isPanning = false
     private var isMiddlePanning = false
+    // 滾輪鍵按下時若沒有放大，改為拖曳視窗：記錄按下時的游標（螢幕座標）與視窗位置。
+    private var middleWindowDragStart: (mouse: CGPoint, origin: CGPoint)?
 
     // 視窗拖曳由我們自己用 performDrag 處理，避免放大後平移時視窗也跟著動。
     override var mouseDownCanMoveWindow: Bool { false }
@@ -1028,7 +1030,7 @@ class PreviewNSView: NSView {
     // 滑鼠操作：
     // - 左鍵按住拖曳：沒放大時移動整個視窗（類似 QuickTime）；放大時平移畫面。單純點擊顯示點擊特效。
     // - 滾輪／觸控板捏合：以游標為中心放大（1～4 倍）。
-    // - 滾輪鍵按住拖曳：平移放大後的畫面（縮放只用滾輪調整）。
+    // - 滾輪鍵按住拖曳：放大時平移畫面；沒放大時移動整個視窗（縮放只用滾輪調整）。
     // - 右鍵：開關聚光燈。
     // 用 local event monitor 統一處理，不受上方 SwiftUI 疊層攔截影響。
     private func handle(_ event: NSEvent) -> NSEvent? {
@@ -1073,15 +1075,27 @@ class PreviewNSView: NSView {
         case .otherMouseDown:
             guard inside, event.buttonNumber == 2 else { return event }
             isMiddlePanning = true
+            let canMoveWindow = container.zoom <= 1 && !window.styleMask.contains(.fullScreen)
+            middleWindowDragStart = canMoveWindow ? (NSEvent.mouseLocation, window.frame.origin) : nil
             return nil
         case .otherMouseDragged:
             guard event.buttonNumber == 2, isMiddlePanning else { return event }
-            container.pan(by: CGPoint(x: event.deltaX, y: -event.deltaY))
-            if container.spotlightCenter != nil { container.spotlightCenter = point }
+            if let start = middleWindowDragStart {
+                let now = NSEvent.mouseLocation
+                var frame = window.frame
+                frame.origin = CGPoint(x: start.origin.x + now.x - start.mouse.x,
+                                       y: start.origin.y + now.y - start.mouse.y)
+                // 跟左鍵拖曳一樣，不讓標題列跑到選單列底下。
+                window.setFrameOrigin(window.constrainFrameRect(frame, to: window.screen).origin)
+            } else {
+                container.pan(by: CGPoint(x: event.deltaX, y: -event.deltaY))
+                if container.spotlightCenter != nil { container.spotlightCenter = point }
+            }
             return nil
         case .otherMouseUp:
             guard event.buttonNumber == 2, isMiddlePanning else { return event }
             isMiddlePanning = false
+            middleWindowDragStart = nil
             return nil
         case .rightMouseDown:
             guard inside else { return event }
