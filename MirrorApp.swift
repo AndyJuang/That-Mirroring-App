@@ -41,6 +41,16 @@ struct iPhoneMirrorApp: App {
                     }
                 }
                 
+                Button(action: {
+                    captureManager.playDeviceAudio.toggle()
+                }) {
+                    Text("Play Device Audio")
+                    if captureManager.playDeviceAudio {
+                        Image(systemName: "checkmark")
+                    }
+                }
+                .keyboardShortcut("s", modifiers: [.command, .shift])
+                
                 Divider()
                 
                 ForEach(captureManager.availableDevices, id: \.uniqueID) { device in
@@ -149,19 +159,26 @@ struct ContentView: View {
     @StateObject private var gifRecorder = GifRecorder()
     @AppStorage("SelectedAnimation") private var selectedAnimation: AnimationType = .cursor
     @State private var taps: [TapData] = []
-    @State private var isDraggingWindow = false
     
     var body: some View {
         ZStack {
             Color.black.edgesIgnoringSafeArea(.all)
             
             if captureManager.hasDevice {
-                PreviewView(session: captureManager.session, geometry: captureManager.geometry)
+                PreviewView(session: captureManager.session, geometry: captureManager.geometry) { location in
+                    guard selectedAnimation != .none || gifRecorder.isRecording else { return }
+                    let tap = TapData(location: location)
+                    taps.append(tap)
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
+                        taps.removeAll { $0.id == tap.id }
+                    }
+                }
                     .edgesIgnoringSafeArea(.all)
                     .overlay(
+                        // 滑鼠操作（拖曳、點擊、滾輪、右鍵）都由 PreviewNSView 處理，這層只負責畫特效，不接收點擊。
+                        // 注意：不要在影片上方疊半透明色塊，在內建 XDR 螢幕上會讓整個畫面偏灰。
                         ZStack {
-                            // 不能用半透明色塊接點擊：在內建 XDR 螢幕上，影片上方疊任何半透明圖層都會讓整個畫面偏灰。
-                            Color.clear.contentShape(Rectangle())
+                            Color.clear
                             ForEach(taps) { tap in
                                 ClickAnimationView(tap: tap, type: selectedAnimation)
                             }
@@ -183,36 +200,11 @@ struct ContentView: View {
                                 }
                             }
                         }
+                        .allowsHitTesting(false)
                     )
                     .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("ToggleRecording"))) { _ in
                         gifRecorder.toggleRecording()
                     }
-                    // 類似 QuickTime：按住左鍵拖曳就移動整個視窗；沒移動（單純點擊）才顯示點擊特效。
-                    .gesture(
-                        DragGesture(minimumDistance: 0)
-                            .onChanged { value in
-                                let distance = hypot(value.translation.width, value.translation.height)
-                                // performDrag 會吃掉放開滑鼠的事件，onEnded 可能不會觸發；
-                                // 每次新的按壓（位移還很小）時重設，避免狀態卡住導致下次拖曳或點擊失效。
-                                if isDraggingWindow && distance <= 3 { isDraggingWindow = false }
-                                guard !isDraggingWindow,
-                                      distance > 3,
-                                      let event = NSApp.currentEvent,
-                                      let window = event.window else { return }
-                                isDraggingWindow = true
-                                window.performDrag(with: event)
-                            }
-                            .onEnded { value in
-                                defer { isDraggingWindow = false }
-                                guard !isDraggingWindow,
-                                      selectedAnimation != .none || gifRecorder.isRecording else { return }
-                                let tap = TapData(location: value.location)
-                                taps.append(tap)
-                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
-                                    taps.removeAll { $0.id == tap.id }
-                                }
-                            }
-                    )
             } else {
                 VStack(spacing: 20) {
                     Image(systemName: "iphone.and.arrow.forward")
@@ -353,6 +345,15 @@ class CaptureManager: NSObject, ObservableObject, AVCaptureVideoDataOutputSample
     @Published var hasDevice = false
     @Published var availableDevices: [AVCaptureDevice] = []
     @Published var geometry = VideoGeometry()
+    // 把手機的聲音（Cam Link 的 HDMI 音訊，或 USB 連接 iPhone 的音訊）從 Mac 播出。預設關閉：
+    // 避免和 OBS 等同時收音的軟體重複播放，也避免佔住 iPhone 麥克風。
+    @Published var playDeviceAudio: Bool = UserDefaults.standard.bool(forKey: "PlayDeviceAudio") {
+        didSet {
+            guard playDeviceAudio != oldValue else { return }
+            UserDefaults.standard.set(playDeviceAudio, forKey: "PlayDeviceAudio")
+            setupSession()
+        }
+    }
     @Published var selectedDeviceID: String? = UserDefaults.standard.string(forKey: "SelectedDeviceID") {
         didSet {
             if selectedDeviceID != oldValue {
@@ -370,6 +371,7 @@ class CaptureManager: NSObject, ObservableObject, AVCaptureVideoDataOutputSample
     private var videoDiscoverySession: AVCaptureDevice.DiscoverySession!
     private var muxedDiscoverySession: AVCaptureDevice.DiscoverySession!
     private let videoDataOutput = AVCaptureVideoDataOutput()
+    private let audioPreviewOutput = AVCaptureAudioPreviewOutput()
     private let captureQueue = DispatchQueue(label: "com.example.iPhoneMirror.captureQueue", qos: .userInitiated)
     // 以下狀態只在 captureQueue 上存取。
     private var blackBarDetector = BlackBarDetector()
@@ -440,7 +442,23 @@ class CaptureManager: NSObject, ObservableObject, AVCaptureVideoDataOutputSample
         }
     }
     
+    static func matchingAudioDevice(for videoDevice: AVCaptureDevice) -> AVCaptureDevice? {
+        let audioDevices = AVCaptureDevice.DiscoverySession(
+            deviceTypes: [.microphone, .external], mediaType: .audio, position: .unspecified
+        ).devices
+        // 只配對名稱完全相同的裝置（擷取卡的影像與聲音同名）。不用型號比對，
+        // 以免把接續互通相機或網路攝影機的麥克風當成手機聲音播出，造成回授。
+        return audioDevices.first { $0.localizedName == videoDevice.localizedName }
+    }
+
     func setupSession() {
+        // 第一次開啟「播放裝置聲音」時先要麥克風權限，拿到結果後再重新設定。
+        if playDeviceAudio && AVCaptureDevice.authorizationStatus(for: .audio) == .notDetermined {
+            AVCaptureDevice.requestAccess(for: .audio) { _ in
+                DispatchQueue.main.async { self.setupSession() }
+            }
+            return
+        }
         session.beginConfiguration()
         captureQueue.async { self.needsDetectorReset = true }
         
@@ -472,10 +490,24 @@ class CaptureManager: NSObject, ObservableObject, AVCaptureVideoDataOutputSample
             if session.canAddInput(input) {
                 session.addInput(input)
                 // Muxed 裝置同時包含 video 與 audio port。
-                // 停用 audio port 讓 CoreAudio 不鎖住 iPhone 麥克風，
+                // 沒開「播放裝置聲音」時停用 audio port，讓 CoreAudio 不鎖住 iPhone 麥克風，
                 // 其他 app 或錄音執行緒才能自由取用。
+                // 沒有麥克風權限時不開聲音，避免 session 因權限錯誤停止、連畫面一起中斷。
+                let audioOK = playDeviceAudio && AVCaptureDevice.authorizationStatus(for: .audio) == .authorized
+                var hasAudio = false
                 for port in input.ports where port.mediaType == .audio {
-                    port.isEnabled = false
+                    port.isEnabled = audioOK
+                    hasAudio = hasAudio || audioOK
+                }
+                // 擷取卡（如 Cam Link）的聲音是另一個同名的音訊裝置。
+                if audioOK, !hasAudio, let audioDevice = CaptureManager.matchingAudioDevice(for: device),
+                   let audioInput = try? AVCaptureDeviceInput(device: audioDevice), session.canAddInput(audioInput) {
+                    session.addInput(audioInput)
+                    hasAudio = true
+                }
+                if hasAudio, session.canAddOutput(audioPreviewOutput) {
+                    audioPreviewOutput.volume = 1
+                    session.addOutput(audioPreviewOutput)
                 }
                 hasDevice = true
                 print("Added input: \(device.localizedName)")
@@ -679,7 +711,14 @@ struct BlackBarDetector {
 class CroppingPreviewLayer: CALayer {
     private(set) var preview = AVCaptureVideoPreviewLayer()
     var geometry = VideoGeometry() {
-        didSet { if geometry != oldValue { setNeedsLayout() } }
+        didSet {
+            guard geometry != oldValue else { return }
+            // 手機轉向時取消放大，避免停在奇怪的位置；黑邊偵測的小幅調整則保留放大。
+            let wasLandscape = oldValue.content.width >= oldValue.content.height
+            let isLandscape = geometry.content.width >= geometry.content.height
+            if wasLandscape != isLandscape { zoom = 1; zoomOffset = .zero }
+            setNeedsLayout()
+        }
     }
 
     override init() {
@@ -691,12 +730,66 @@ class CroppingPreviewLayer: CALayer {
         addSublayer(preview)
     }
 
+    // 放大：畫面座標 p 顯示在 p * zoom + zoomOffset（以容器左下角為原點）。
+    private(set) var zoom: CGFloat = 1
+    private(set) var zoomOffset: CGPoint = .zero
+    static let maxZoom: CGFloat = 4
+
+    // 聚光燈：游標周圍保持原樣，其他地方變暗。關閉時整層移除，避免在 XDR 螢幕上讓畫面偏灰。
+    private let spotlight = CAShapeLayer()
+    var spotlightCenter: CGPoint? {
+        didSet { updateSpotlight() }
+    }
+
     override init(layer: Any) {
         super.init(layer: layer)
         if let other = layer as? CroppingPreviewLayer {
             preview = other.preview
             geometry = other.geometry
+            zoom = other.zoom
+            zoomOffset = other.zoomOffset
         }
+    }
+
+    // 以 anchor（容器座標）為中心縮放到 newZoom，並限制在畫面範圍內。
+    func setZoom(_ newZoom: CGFloat, anchor: CGPoint, animated: Bool = false) {
+        let z = min(max(newZoom, 1), CroppingPreviewLayer.maxZoom)
+        let q = CGPoint(x: (anchor.x - zoomOffset.x) / zoom, y: (anchor.y - zoomOffset.y) / zoom)
+        zoom = z
+        zoomOffset = clampedOffset(CGPoint(x: anchor.x - q.x * z, y: anchor.y - q.y * z))
+        layoutPreview(animated: animated)
+    }
+
+    func pan(by delta: CGPoint) {
+        guard zoom > 1 else { return }
+        zoomOffset = clampedOffset(CGPoint(x: zoomOffset.x + delta.x, y: zoomOffset.y + delta.y))
+        layoutPreview(animated: false)
+    }
+
+    private func clampedOffset(_ o: CGPoint) -> CGPoint {
+        CGPoint(x: min(0, max(bounds.width * (1 - zoom), o.x)),
+                y: min(0, max(bounds.height * (1 - zoom), o.y)))
+    }
+
+    private func updateSpotlight() {
+        guard let center = spotlightCenter else {
+            spotlight.removeFromSuperlayer()
+            return
+        }
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        if spotlight.superlayer == nil {
+            spotlight.fillRule = .evenOdd
+            spotlight.fillColor = NSColor.black.withAlphaComponent(0.65).cgColor
+            addSublayer(spotlight)
+        }
+        spotlight.frame = bounds
+        let radius = max(60, min(bounds.width, bounds.height) * 0.22)
+        let path = CGMutablePath()
+        path.addRect(bounds)
+        path.addEllipse(in: CGRect(x: center.x - radius, y: center.y - radius, width: radius * 2, height: radius * 2))
+        spotlight.path = path
+        CATransaction.commit()
     }
 
     required init?(coder: NSCoder) {
@@ -705,9 +798,16 @@ class CroppingPreviewLayer: CALayer {
 
     override func layoutSublayers() {
         super.layoutSublayers()
+        zoomOffset = clampedOffset(zoomOffset)
+        layoutPreview(animated: false)
+        updateSpotlight()
+    }
+
+    private func layoutPreview(animated: Bool) {
         let raw = geometry.raw, content = geometry.content
         CATransaction.begin()
-        CATransaction.setDisableActions(true)
+        CATransaction.setDisableActions(!animated)
+        CATransaction.setAnimationDuration(0.2)
         if raw.width > 0, raw.height > 0, content.width > 0, content.height > 0 {
             // 視窗比例與內容只差一點點（視窗尺寸取整數造成）時用填滿，避免邊緣露出細黑線；
             // 差很多（例如全螢幕）時用等比塞入，不裁到內容。
@@ -715,8 +815,10 @@ class CroppingPreviewLayer: CALayer {
             let fill = max(bounds.width / content.width, bounds.height / content.height)
             let k = fill / fit <= 1.03 ? fill : fit
             let w = raw.width * k, h = raw.height * k
+            let base = CGRect(x: bounds.midX - w / 2, y: bounds.midY - h / 2, width: w, height: h)
             preview.videoGravity = .resize
-            preview.frame = CGRect(x: bounds.midX - w / 2, y: bounds.midY - h / 2, width: w, height: h)
+            preview.frame = CGRect(x: base.minX * zoom + zoomOffset.x, y: base.minY * zoom + zoomOffset.y,
+                                   width: base.width * zoom, height: base.height * zoom)
         } else {
             // 還不知道影像尺寸時，整張等比顯示。
             preview.videoGravity = .resizeAspect
@@ -735,6 +837,100 @@ class PreviewNSView: NSView {
     }
 
     var previewLayer: AVCaptureVideoPreviewLayer? { (layer as? CroppingPreviewLayer)?.preview }
+    private var container: CroppingPreviewLayer? { layer as? CroppingPreviewLayer }
+
+    // 單純點擊（沒有拖曳）時回呼，座標以左上角為原點（SwiftUI 座標）。
+    var onTap: ((CGPoint) -> Void)?
+
+    private var eventMonitor: Any?
+    private var mouseDownEvent: NSEvent?
+    private var mouseDownPoint: CGPoint?
+    private var isPanning = false
+    private var isMiddlePanning = false
+
+    // 視窗拖曳由我們自己用 performDrag 處理，避免放大後平移時視窗也跟著動。
+    override var mouseDownCanMoveWindow: Bool { false }
+
+    // 滑鼠操作：
+    // - 左鍵按住拖曳：沒放大時移動整個視窗（類似 QuickTime）；放大時平移畫面。單純點擊顯示點擊特效。
+    // - 滾輪／觸控板捏合：以游標為中心放大（1～4 倍）。
+    // - 滾輪鍵按住拖曳：平移放大後的畫面（縮放只用滾輪調整）。
+    // - 右鍵：開關聚光燈。
+    // 用 local event monitor 統一處理，不受上方 SwiftUI 疊層攔截影響。
+    private func handle(_ event: NSEvent) -> NSEvent? {
+        guard let window = window, event.window === window, let container = container else { return event }
+        let point = convert(event.locationInWindow, from: nil)
+        let inside = bounds.contains(point)
+
+        switch event.type {
+        case .leftMouseDown:
+            guard inside, !isOverWindowButton(event) else { return event }
+            mouseDownEvent = event
+            mouseDownPoint = point
+            isPanning = false
+            return event
+        case .leftMouseDragged:
+            guard let start = mouseDownPoint, let downEvent = mouseDownEvent else { return event }
+            if container.zoom > 1 {
+                if isPanning || hypot(point.x - start.x, point.y - start.y) > 3 { isPanning = true }
+                container.pan(by: CGPoint(x: event.deltaX, y: -event.deltaY))
+            } else if !isPanning, hypot(point.x - start.x, point.y - start.y) > 3 {
+                mouseDownPoint = nil
+                mouseDownEvent = nil
+                window.performDrag(with: downEvent)
+            }
+            if container.spotlightCenter != nil { container.spotlightCenter = point }
+            return event
+        case .leftMouseUp:
+            defer { mouseDownPoint = nil; mouseDownEvent = nil; isPanning = false }
+            if let start = mouseDownPoint, !isPanning, hypot(point.x - start.x, point.y - start.y) <= 3 {
+                onTap?(CGPoint(x: point.x, y: bounds.height - point.y))
+            }
+            return event
+        case .scrollWheel:
+            guard inside, event.scrollingDeltaY != 0 else { return event }
+            let step = event.hasPreciseScrollingDeltas ? event.scrollingDeltaY * 0.01 : event.scrollingDeltaY * 0.1
+            container.setZoom(container.zoom * exp(step), anchor: point)
+            return nil
+        case .magnify:
+            guard inside else { return event }
+            container.setZoom(container.zoom * (1 + event.magnification), anchor: point)
+            return nil
+        case .otherMouseDown:
+            guard inside, event.buttonNumber == 2 else { return event }
+            isMiddlePanning = true
+            return nil
+        case .otherMouseDragged:
+            guard event.buttonNumber == 2, isMiddlePanning else { return event }
+            container.pan(by: CGPoint(x: event.deltaX, y: -event.deltaY))
+            if container.spotlightCenter != nil { container.spotlightCenter = point }
+            return nil
+        case .otherMouseUp:
+            guard event.buttonNumber == 2, isMiddlePanning else { return event }
+            isMiddlePanning = false
+            return nil
+        case .rightMouseDown:
+            guard inside else { return event }
+            container.spotlightCenter = container.spotlightCenter == nil ? point : nil
+            return nil
+        case .mouseMoved:
+            if container.spotlightCenter != nil, inside { container.spotlightCenter = point }
+            return event
+        default:
+            return event
+        }
+    }
+
+    private func isOverWindowButton(_ event: NSEvent) -> Bool {
+        guard let window = window else { return false }
+        for type in [NSWindow.ButtonType.closeButton, .miniaturizeButton, .zoomButton] {
+            if let button = window.standardWindowButton(type), !button.isHidden,
+               button.convert(button.bounds, to: nil).insetBy(dx: -4, dy: -4).contains(event.locationInWindow) {
+                return true
+            }
+        }
+        return false
+    }
 
     // 自訂 backing layer 由 layoutSublayers 排版預覽層，避免 sublayer frame 在
     // layout() 前為 zero 導致黑畫面（在 macOS 26 上更容易觸發）。
@@ -754,9 +950,28 @@ class PreviewNSView: NSView {
 
     private var fullScreenObserver: NSObjectProtocol?
 
+    override func viewWillMove(toWindow newWindow: NSWindow?) {
+        super.viewWillMove(toWindow: newWindow)
+        // 預覽畫面移除（例如拔掉裝置）後，恢復從背景拖曳視窗。
+        if newWindow == nil { window?.isMovableByWindowBackground = true }
+    }
+
     override func viewDidMoveToWindow() {
         super.viewDidMoveToWindow()
-        self.window?.isMovableByWindowBackground = true
+        self.window?.isMovableByWindowBackground = false
+        self.window?.acceptsMouseMovedEvents = true
+        if let monitor = eventMonitor {
+            NSEvent.removeMonitor(monitor)
+            eventMonitor = nil
+        }
+        if window != nil {
+            eventMonitor = NSEvent.addLocalMonitorForEvents(
+                matching: [.leftMouseDown, .leftMouseDragged, .leftMouseUp, .scrollWheel, .magnify,
+                           .otherMouseDown, .otherMouseDragged, .otherMouseUp, .rightMouseDown, .mouseMoved]
+            ) { [weak self] event in
+                self?.handle(event) ?? event
+            }
+        }
         if let observer = fullScreenObserver {
             NotificationCenter.default.removeObserver(observer)
             fullScreenObserver = nil
@@ -775,6 +990,9 @@ class PreviewNSView: NSView {
     deinit {
         if let observer = fullScreenObserver {
             NotificationCenter.default.removeObserver(observer)
+        }
+        if let monitor = eventMonitor {
+            NSEvent.removeMonitor(monitor)
         }
     }
 
@@ -828,10 +1046,12 @@ class PreviewNSView: NSView {
 struct PreviewView: NSViewRepresentable {
     let session: AVCaptureSession
     let geometry: VideoGeometry
+    let onTap: (CGPoint) -> Void
 
     func makeNSView(context: Context) -> PreviewNSView {
         let view = PreviewNSView()
         view.previewLayer?.session = session
+        view.onTap = onTap
         return view
     }
 
@@ -840,6 +1060,7 @@ struct PreviewView: NSViewRepresentable {
             nsView.previewLayer?.session = session
         }
         (nsView.layer as? CroppingPreviewLayer)?.geometry = geometry
+        nsView.onTap = onTap
         nsView.videoSize = geometry.content
     }
 }
