@@ -3,6 +3,7 @@
 
 # Build artifacts
 iPhoneMirror.app/
+ThatMirror.app/
 *.o
 
 # Scratch files

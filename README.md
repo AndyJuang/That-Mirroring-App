@@ -28,7 +28,7 @@ A native, lightweight macOS application built with Swift and SwiftUI that allows
 
 1. **Download the app** from the [Releases page](https://github.com/AndyJuang/That-Mirror-App/releases) or build it yourself.
 2. **Connect** your iPhone or iPad to your Mac using a Lightning or USB-C cable.
-3. **Launch** `iPhoneMirror.app`.
+3. **Launch** `ThatMirror.app`.
 4. If this is your first time, you may need to unlock your iOS device and tap **"Trust This Computer"**.
 5. The app will automatically detect your device and display its screen.
 6. If you have multiple devices connected (or want to select a camera), navigate to the top macOS Menu Bar and click on **Device** to select your input.
@@ -49,18 +49,18 @@ This app is a standalone Swift file designed for rapid compilation without needi
 
 ```bash
 # 1. Create the app bundle structure
-mkdir -p iPhoneMirror.app/Contents/MacOS
-mkdir -p iPhoneMirror.app/Contents/Resources
+mkdir -p ThatMirror.app/Contents/MacOS
+mkdir -p ThatMirror.app/Contents/Resources
 
 # 2. Compile the app package
-swiftc MirrorApp.swift -parse-as-library -o iPhoneMirror.app/Contents/MacOS/iPhoneMirror
+swiftc MirrorApp.swift -parse-as-library -o ThatMirror.app/Contents/MacOS/ThatMirror
 
 # 3. Copy resources
-cp Info.plist iPhoneMirror.app/Contents/
-cp AppIcon.icns iPhoneMirror.app/Contents/Resources/
+cp Info.plist ThatMirror.app/Contents/
+cp AppIcon.icns ThatMirror.app/Contents/Resources/
 
 # 4. Re-sign the app so macOS allows it to access cameras/hardware
-codesign --sign - --force --deep iPhoneMirror.app
+codesign --sign - --force --deep ThatMirror.app
 ```
 
 ### 💡 How it Works (Under the Hood)
@@ -93,7 +93,7 @@ codesign --sign - --force --deep iPhoneMirror.app
 
 1. 到本專案的 [Releases 頁面](https://github.com/AndyJuang/That-Mirror-App/releases) 下載最新的 `.dmg` 檔案，或是從原始碼自己編譯。
 2. 使用傳輸線將 iPhone / iPad **連上 Mac**。
-3. **開啟** `iPhoneMirror.app`。
+3. **開啟** `ThatMirror.app`。
 4. 第一次使用時，請解鎖手機畫面並點選 **「信任這部電腦」**。
 5. App 打開後，就會自動抓取你的手機實時螢幕。
 6. 前往 Mac 螢幕頂部的「Menu Bar」，你可以：
@@ -106,18 +106,18 @@ codesign --sign - --force --deep iPhoneMirror.app
 
 ```bash
 # 1. 建立 App Bundle 資料夾結構
-mkdir -p iPhoneMirror.app/Contents/MacOS
-mkdir -p iPhoneMirror.app/Contents/Resources
+mkdir -p ThatMirror.app/Contents/MacOS
+mkdir -p ThatMirror.app/Contents/Resources
 
 # 2. 編譯二進位執行檔到 bundle 中
-swiftc MirrorApp.swift -parse-as-library -o iPhoneMirror.app/Contents/MacOS/iPhoneMirror
+swiftc MirrorApp.swift -parse-as-library -o ThatMirror.app/Contents/MacOS/ThatMirror
 
 # 3. 複製配置檔與圖示到 Bundle 中
-cp Info.plist iPhoneMirror.app/Contents/
-cp AppIcon.icns iPhoneMirror.app/Contents/Resources/
+cp Info.plist ThatMirror.app/Contents/
+cp AppIcon.icns ThatMirror.app/Contents/Resources/
 
 # 4. 重新給予本機簽名（非常重要，不簽名 macOS 不會放行其讀取攝影機）
-codesign --sign - --force --deep iPhoneMirror.app
+codesign --sign - --force --deep ThatMirror.app
 ```
 
 ### 💡 原理解析
