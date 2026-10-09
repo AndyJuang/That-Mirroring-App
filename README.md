@@ -42,7 +42,7 @@ To toggle the click highlight effect:
 This app is a standalone Swift file designed for rapid compilation without needing Xcode.
 
 **Requirements:**
-- macOS 11.0+
+- macOS 14.0+
 - Swift Compiler (`swiftc`) installed (usually via Xcode Command Line Tools)
 
 **Compilation Command:**
@@ -102,7 +102,7 @@ codesign --sign - --force --deep iPhoneMirror.app
 
 ### 🛠️ 如何從原始碼編譯打包
 
-本專案只有一支 SwiftUI 程式碼，不依賴龐大的 Xcode 專案即可獨立編譯。確保 Mac 有安裝 Xcode 指令列工具後執行：
+本專案只有一支 SwiftUI 程式碼，不依賴龐大的 Xcode 專案即可獨立編譯。需要 macOS 14.0 以上，並安裝 Xcode（或 Xcode 指令列工具）後執行：
 
 ```bash
 # 1. 建立 App Bundle 資料夾結構

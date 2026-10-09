@@ -2,29 +2,29 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-    <key>CFBundleExecutable</key>
-    <string>iPhoneMirror</string>
-    <key>CFBundleIdentifier</key>
-    <string>com.example.iPhoneMirror</string>
-    <key>CFBundleName</key>
-    <string>iPhone Mirror</string>
-    <key>CFBundlePackageType</key>
-    <string>APPL</string>
-    <key>CFBundleShortVersionString</key>
-    <string>1.2</string>
-    <key>CFBundleVersion</key>
-    <string>3</string>
-    <key>CFBundleIconFile</key>
-    <string>AppIcon</string>
-    <key>LSMinimumSystemVersion</key>
-    <string>11.0</string>
-    <key>NSHighResolutionCapable</key>
-    <true/>
-    <key>NSCameraUsageDescription</key>
-    <string>This app requires camera access to capture your iPhone screen.</string>
-    <key>NSMicrophoneUsageDescription</key>
-    <string>This app requires microphone access to capture your iPhone audio.</string>
-    <key>NSScreenCaptureUsageDescription</key>
-    <string>This app requires screen recording permission to create GIFs from its own window.</string>
+	<key>CFBundleExecutable</key>
+	<string>iPhoneMirror</string>
+	<key>CFBundleIconFile</key>
+	<string>AppIcon</string>
+	<key>CFBundleIdentifier</key>
+	<string>com.example.iPhoneMirror</string>
+	<key>CFBundleName</key>
+	<string>iPhone Mirror</string>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>1.3</string>
+	<key>CFBundleVersion</key>
+	<string>4</string>
+	<key>LSMinimumSystemVersion</key>
+	<string>14.0</string>
+	<key>NSCameraUsageDescription</key>
+	<string>This app requires camera access to capture your iPhone screen.</string>
+	<key>NSHighResolutionCapable</key>
+	<true/>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>This app requires microphone access to capture your iPhone audio.</string>
+	<key>NSScreenCaptureUsageDescription</key>
+	<string>This app requires screen recording permission to create GIFs from its own window.</string>
 </dict>
 </plist>
