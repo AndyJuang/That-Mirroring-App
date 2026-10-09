@@ -149,6 +149,7 @@ struct ContentView: View {
     @StateObject private var gifRecorder = GifRecorder()
     @AppStorage("SelectedAnimation") private var selectedAnimation: AnimationType = .cursor
     @State private var taps: [TapData] = []
+    @State private var isDraggingWindow = false
     
     var body: some View {
         ZStack {
@@ -186,10 +187,25 @@ struct ContentView: View {
                     .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("ToggleRecording"))) { _ in
                         gifRecorder.toggleRecording()
                     }
+                    // 類似 QuickTime：按住左鍵拖曳就移動整個視窗；沒移動（單純點擊）才顯示點擊特效。
                     .gesture(
-                        selectedAnimation == .none && !gifRecorder.isRecording ? nil :
                         DragGesture(minimumDistance: 0)
+                            .onChanged { value in
+                                let distance = hypot(value.translation.width, value.translation.height)
+                                // performDrag 會吃掉放開滑鼠的事件，onEnded 可能不會觸發；
+                                // 每次新的按壓（位移還很小）時重設，避免狀態卡住導致下次拖曳或點擊失效。
+                                if isDraggingWindow && distance <= 3 { isDraggingWindow = false }
+                                guard !isDraggingWindow,
+                                      distance > 3,
+                                      let event = NSApp.currentEvent,
+                                      let window = event.window else { return }
+                                isDraggingWindow = true
+                                window.performDrag(with: event)
+                            }
                             .onEnded { value in
+                                defer { isDraggingWindow = false }
+                                guard !isDraggingWindow,
+                                      selectedAnimation != .none || gifRecorder.isRecording else { return }
                                 let tap = TapData(location: value.location)
                                 taps.append(tap)
                                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
@@ -559,8 +575,15 @@ struct BlackBarDetector {
     private var candidate: Margins?
     private var candidateCount = 0
 
+    // 擷取卡縮放後，黑邊與內容之間有 1～2 像素的暗色漸層，上下（左右）黑邊也可能差 1 像素；
+    // 有黑邊的方向每邊多裁 3 像素，避免邊緣留下細黑線。
+    static let edgeInset = 3
+
     var contentSize: CGSize {
-        CGSize(width: rawSize.width - CGFloat(margins.x * 2), height: rawSize.height - CGFloat(margins.y * 2))
+        let ix = margins.x > 0 ? BlackBarDetector.edgeInset : 0
+        let iy = margins.y > 0 ? BlackBarDetector.edgeInset : 0
+        return CGSize(width: rawSize.width - CGFloat((margins.x + ix) * 2),
+                      height: rawSize.height - CGFloat((margins.y + iy) * 2))
     }
 
     mutating func reset(rawSize: CGSize) {
@@ -650,8 +673,8 @@ struct BlackBarDetector {
     }
 }
 
-// 預覽層放在可裁切的容器裡：容器 masksToBounds，預覽層放大到「內容」剛好等比塞進容器並置中，
-// 黑邊就落在容器外。視窗比例和內容不同時（例如全螢幕）只會補黑邊，不會裁到內容。
+// 預覽層放在可裁切的容器裡：容器 masksToBounds，預覽層放大到「內容」對齊容器並置中，黑邊就落在容器外。
+// 視窗比例與內容相差 3% 以內時填滿容器（最多裁掉約 1.5% 的邊緣）；相差更多時（例如全螢幕）等比塞入，只補黑邊。
 // 預覽層的 frame 在 layoutSublayers 隨容器 bounds 更新，避免 frame 為 zero 導致黑畫面。
 class CroppingPreviewLayer: CALayer {
     private(set) var preview = AVCaptureVideoPreviewLayer()
@@ -686,7 +709,11 @@ class CroppingPreviewLayer: CALayer {
         CATransaction.begin()
         CATransaction.setDisableActions(true)
         if raw.width > 0, raw.height > 0, content.width > 0, content.height > 0 {
-            let k = min(bounds.width / content.width, bounds.height / content.height)
+            // 視窗比例與內容只差一點點（視窗尺寸取整數造成）時用填滿，避免邊緣露出細黑線；
+            // 差很多（例如全螢幕）時用等比塞入，不裁到內容。
+            let fit = min(bounds.width / content.width, bounds.height / content.height)
+            let fill = max(bounds.width / content.width, bounds.height / content.height)
+            let k = fill / fit <= 1.03 ? fill : fit
             let w = raw.width * k, h = raw.height * k
             preview.videoGravity = .resize
             preview.frame = CGRect(x: bounds.midX - w / 2, y: bounds.midY - h / 2, width: w, height: h)
@@ -753,7 +780,7 @@ class PreviewNSView: NSView {
 
     // 依畫面比例調整視窗：
     // - 方向沒變（只是比例微調）時維持高度，跟以前一樣。
-    // - 手機轉向（直式↔橫式）時保留視窗的長邊，效果就像把視窗跟著手機一起轉。
+    // - 手機轉向（直式↔橫式）時自動放大到所在螢幕可用範圍的 95%，並移到螢幕正中央。
     // - 新尺寸一律縮到所在螢幕的可用範圍內，並以原本的中心為準，超出螢幕時往內推。
     private func adjustWindowAspect() {
         guard let window = self.window, videoSize.width > 0 && videoSize.height > 0 else { return }
@@ -765,12 +792,12 @@ class PreviewNSView: NSView {
         let wasLandscape = current.width >= current.height
         let isLandscape = ratio >= 1
 
+        let visibleFrame = (window.screen ?? NSScreen.main)?.visibleFrame
+        let rotated = wasLandscape != isLandscape
         var size: CGSize
-        if wasLandscape != isLandscape {
-            let longSide = max(current.width, current.height)
-            size = isLandscape
-                ? CGSize(width: longSide, height: longSide / ratio)
-                : CGSize(width: longSide * ratio, height: longSide)
+        if rotated, let visible = visibleFrame {
+            let k = min(visible.width * 0.95 / ratio, visible.height * 0.95)
+            size = CGSize(width: k * ratio, height: k)
         } else {
             size = CGSize(width: current.height * ratio, height: current.height)
         }
@@ -779,13 +806,14 @@ class PreviewNSView: NSView {
         let minScale = max(1, 200 / size.width, 200 / size.height)
         size = CGSize(width: size.width * minScale, height: size.height * minScale)
 
-        if let visible = (window.screen ?? NSScreen.main)?.visibleFrame {
+        if let visible = visibleFrame {
             let scale = min(1, visible.width / size.width, visible.height / size.height)
             size = CGSize(width: size.width * scale, height: size.height * scale)
 
             // 尺寸沒變就不動視窗，保留使用者刻意擺在螢幕邊緣的位置。
             guard abs(size.width - current.width) > 1 || abs(size.height - current.height) > 1 else { return }
-            var frame = CGRect(x: current.midX - size.width / 2, y: current.midY - size.height / 2,
+            let center = rotated ? CGPoint(x: visible.midX, y: visible.midY) : CGPoint(x: current.midX, y: current.midY)
+            var frame = CGRect(x: center.x - size.width / 2, y: center.y - size.height / 2,
                                width: size.width, height: size.height)
             frame.origin.x = min(max(frame.origin.x, visible.minX), visible.maxX - frame.width)
             frame.origin.y = min(max(frame.origin.y, visible.minY), visible.maxY - frame.height)
