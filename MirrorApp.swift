@@ -159,6 +159,8 @@ struct ContentView: View {
     @StateObject private var gifRecorder = GifRecorder()
     @AppStorage("SelectedAnimation") private var selectedAnimation: AnimationType = .cursor
     @State private var taps: [TapData] = []
+    @State private var showAudioHint = false
+    @State private var audioHintToken = UUID()
     
     var body: some View {
         ZStack {
@@ -183,6 +185,22 @@ struct ContentView: View {
                                 ClickAnimationView(tap: tap, type: selectedAnimation)
                             }
                             
+                            // 只在剛偵測到壞訊號時顯示幾秒；用不透明底色，避免影片在內建 XDR 螢幕上偏灰。
+                            if showAudioHint {
+                                VStack {
+                                    Spacer()
+                                    Text("手機聲音沒有從 HDMI 送出。請在手機的控制中心把聲音輸出切回 HDMI；若仍無效，請重新插拔 Cam Link 與 HDMI 轉接器。")
+                                        .font(.system(size: 13, weight: .medium))
+                                        .foregroundColor(.white)
+                                        .multilineTextAlignment(.leading)
+                                        .padding(.horizontal, 14)
+                                        .padding(.vertical, 10)
+                                        .background(Color(white: 0.12))
+                                        .cornerRadius(8)
+                                        .padding(12)
+                                }
+                            }
+                            
                             if gifRecorder.isRecording {
                                 VStack {
                                     HStack {
@@ -202,6 +220,15 @@ struct ContentView: View {
                         }
                         .allowsHitTesting(false)
                     )
+                    .onReceive(captureManager.$audioSignalBroken.removeDuplicates()) { broken in
+                        showAudioHint = broken
+                        guard broken else { return }
+                        let token = UUID()
+                        audioHintToken = token
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 8) {
+                            if audioHintToken == token { showAudioHint = false }
+                        }
+                    }
                     .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("ToggleRecording"))) { _ in
                         gifRecorder.toggleRecording()
                     }
@@ -341,8 +368,10 @@ class GifRecorder: NSObject, ObservableObject, SCStreamOutput {
     }
 }
 
-class CaptureManager: NSObject, ObservableObject, AVCaptureVideoDataOutputSampleBufferDelegate {
+class CaptureManager: NSObject, ObservableObject, AVCaptureVideoDataOutputSampleBufferDelegate, AVCaptureAudioDataOutputSampleBufferDelegate {
     @Published var hasDevice = false
+    // 收到的手機聲音是壞訊號（見 AudioSignalMonitor）時為 true，期間自動靜音並在畫面上提示。
+    @Published var audioSignalBroken = false
     @Published var availableDevices: [AVCaptureDevice] = []
     @Published var geometry = VideoGeometry()
     // 把手機的聲音（Cam Link 的 HDMI 音訊，或 USB 連接 iPhone 的音訊）從 Mac 播出。預設關閉：
@@ -372,6 +401,11 @@ class CaptureManager: NSObject, ObservableObject, AVCaptureVideoDataOutputSample
     private var muxedDiscoverySession: AVCaptureDevice.DiscoverySession!
     private let videoDataOutput = AVCaptureVideoDataOutput()
     private let audioPreviewOutput = AVCaptureAudioPreviewOutput()
+    private let audioDataOutput = AVCaptureAudioDataOutput()
+    private let audioQueue = DispatchQueue(label: "com.example.iPhoneMirror.audioQueue", qos: .userInitiated)
+    private var audioMonitor = AudioSignalMonitor() // 只在 audioQueue 上存取
+    // 每次 setupSession 加 1（main 上存取）；音訊判斷帶著當時的版本，過期的結果直接丟掉，避免重新設定後卡在靜音。
+    private var sessionGeneration = 0
     private let captureQueue = DispatchQueue(label: "com.example.iPhoneMirror.captureQueue", qos: .userInitiated)
     // 以下狀態只在 captureQueue 上存取。
     private var blackBarDetector = BlackBarDetector()
@@ -459,6 +493,8 @@ class CaptureManager: NSObject, ObservableObject, AVCaptureVideoDataOutputSample
             }
             return
         }
+        sessionGeneration += 1
+        audioSignalBroken = false
         session.beginConfiguration()
         captureQueue.async { self.needsDetectorReset = true }
         
@@ -508,7 +544,20 @@ class CaptureManager: NSObject, ObservableObject, AVCaptureVideoDataOutputSample
                 if hasAudio, session.canAddOutput(audioPreviewOutput) {
                     audioPreviewOutput.volume = 1
                     session.addOutput(audioPreviewOutput)
+                    // 另外接一路音訊資料做訊號分析，壞訊號時把播放音量降到 0。
+                    if session.canAddOutput(audioDataOutput) {
+                        audioDataOutput.audioSettings = [
+                            AVFormatIDKey: kAudioFormatLinearPCM,
+                            AVLinearPCMBitDepthKey: 32,
+                            AVLinearPCMIsFloatKey: true,
+                            AVLinearPCMIsNonInterleaved: false,
+                        ]
+                        audioDataOutput.setSampleBufferDelegate(self, queue: audioQueue)
+                        session.addOutput(audioDataOutput)
+                    }
                 }
+                let generation = sessionGeneration
+                audioQueue.async { self.audioMonitor = AudioSignalMonitor(generation: generation) }
                 hasDevice = true
                 print("Added input: \(device.localizedName)")
             } else {
@@ -543,6 +592,10 @@ class CaptureManager: NSObject, ObservableObject, AVCaptureVideoDataOutputSample
     }
     
     func captureOutput(_ output: AVCaptureOutput, didOutput sampleBuffer: CMSampleBuffer, from connection: AVCaptureConnection) {
+        if output === audioDataOutput {
+            handleAudio(sampleBuffer)
+            return
+        }
         guard let pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else { return }
         let rawSize = CGSize(width: CVPixelBufferGetWidth(pixelBuffer), height: CVPixelBufferGetHeight(pixelBuffer))
         let now = CACurrentMediaTime()
@@ -578,6 +631,127 @@ class CaptureManager: NSObject, ObservableObject, AVCaptureVideoDataOutputSample
             DispatchQueue.main.async {
                 self.geometry = newGeometry
             }
+        }
+    }
+}
+
+extension CaptureManager {
+    // 在 audioQueue 上呼叫。
+    func handleAudio(_ sampleBuffer: CMSampleBuffer) {
+        var blockBuffer: CMBlockBuffer?
+        var list = AudioBufferList()
+        let status = CMSampleBufferGetAudioBufferListWithRetainedBlockBuffer(
+            sampleBuffer, bufferListSizeNeededOut: nil, bufferListOut: &list,
+            bufferListSize: MemoryLayout<AudioBufferList>.size, blockBufferAllocator: nil,
+            blockBufferMemoryAllocator: nil, flags: 0, blockBufferOut: &blockBuffer)
+        guard status == noErr, let data = list.mBuffers.mData else { return }
+        let channels = max(1, Int(list.mBuffers.mNumberChannels))
+        let frames = Int(list.mBuffers.mDataByteSize) / (4 * channels)
+        let samples = UnsafeBufferPointer(start: data.assumingMemoryBound(to: Float.self), count: frames * channels)
+
+        guard let broken = audioMonitor.process(samples, channels: channels),
+              broken != audioMonitor.reportedBroken else { return }
+        audioMonitor.reportedBroken = broken
+        let generation = audioMonitor.generation
+        DispatchQueue.main.async {
+            guard generation == self.sessionGeneration else { return }
+            self.audioPreviewOutput.volume = broken ? 0 : 1
+            self.audioSignalBroken = broken
+        }
+    }
+}
+
+// 判斷擷取卡送來的手機聲音是不是壞訊號。實測的壞訊號都是「大部分取樣剛好是 0，中間夾著被切斷的聲音片段」：
+//   - iPhone 用過語音互動（例如 Google Maps 的 Gemini）後改從手機喇叭出聲，HDMI 只剩零星、接近滿音量的單一取樣尖峰。
+//   - Cam Link 音訊卡住時，每約 60 毫秒只送出一小段被切斷的聲音。
+// 關鍵特徵是起音：真正的音效（包括很小聲的鍵盤按鍵聲）從接近 0 慢慢變大；被切斷的片段在靜音後一開始就接近最大值。
+// 以「起音 ÷ 該片段最大值」判斷，不受音量影響（實測中位數：按鍵聲 0.004、Cam Link 卡住 0.28、尖峰 1）。
+// 按鍵聲偶爾也會突然起音，所以單一片段不下結論：要嘛是密集的被切斷片段，要嘛是 8 個取樣以內的極短尖峰。
+// 整段都是 0 的真正靜音維持現狀。
+struct AudioSignalMonitor {
+    private var frames = 0
+    private var zeros = 0
+    private var abruptBursts = 0
+    private var spikes = 0
+    private var smoothBursts = 0
+    private var sawLongSound = false
+    private var zeroRun = 0
+    private var soundRun = 0
+    // 目前這段聲音（中間短於 1 毫秒的 0 視為同一段）。
+    private var inBurst = false
+    private var burstAfterSilence = false
+    private var burstFirst: Float = 0
+    private var burstPeak: Float = 0
+    private var burstLength = 0
+    var reportedBroken = false
+    var generation = 0
+
+    init(generation: Int = 0) {
+        self.generation = generation
+    }
+
+    private static let windowFrames = 24_000   // 48kHz 下 0.5 秒
+    private static let silenceRun = 480        // 10 毫秒以上的 0 算「靜音段」
+    private static let burstGap = 48           // 1 毫秒以上的 0 才算一段聲音結束
+    private static let longSound = 960         // 連續 20 毫秒以上不為 0 算「持續的聲音」
+    private static let abruptRatio: Float = 0.2
+    private static let maxSpikeLength = 8      // 8 個取樣以內的突然尖峰（Gemini 之後的雜訊是單一取樣）
+    private static let minPeak: Float = 0.002  // 約 -54 dBFS，更小的雜點不列入判斷
+
+    // 每累積 0.5 秒判斷一次：true 壞訊號、false 正常；整段靜音時回傳 nil（維持現狀）。
+    // 只看第一個聲道。
+    mutating func process(_ samples: UnsafeBufferPointer<Float>, channels: Int) -> Bool? {
+        var result: Bool?
+        var i = 0
+        while i < samples.count {
+            let x = samples[i]
+            frames += 1
+            if x == 0 {
+                zeros += 1
+                soundRun = 0
+                zeroRun += 1
+                if inBurst && zeroRun >= AudioSignalMonitor.burstGap { endBurst() }
+            } else {
+                if !inBurst {
+                    inBurst = true
+                    burstAfterSilence = zeroRun >= AudioSignalMonitor.silenceRun
+                    burstFirst = abs(x)
+                    burstPeak = 0
+                    burstLength = 0
+                }
+                burstPeak = max(burstPeak, abs(x))
+                burstLength += 1
+                soundRun += 1
+                if soundRun >= AudioSignalMonitor.longSound { sawLongSound = true }
+                zeroRun = 0
+            }
+            if frames >= AudioSignalMonitor.windowFrames {
+                let zeroFraction = Double(zeros) / Double(frames)
+                if abruptBursts >= 3 && zeroFraction > 0.6 {
+                    // 被切斷的片段很密集（Cam Link 卡住），即使夾著較長的片段也算壞訊號。
+                    result = true
+                } else if spikes > 0 && !sawLongSound && zeroFraction > 0.8 {
+                    // 零星的極短尖峰（Gemini 之後）。偶爾也有按鍵聲是突然起音，但它們長得多，不算尖峰。
+                    result = true
+                } else if abruptBursts == 0 && (sawLongSound || smoothBursts > 0) {
+                    // 持續的聲音，或平順起音的短音效（例如按鍵聲）。有任何突然起音的片段時不下結論。
+                    result = false
+                }
+                frames = 0; zeros = 0; abruptBursts = 0; spikes = 0; smoothBursts = 0; sawLongSound = false
+            }
+            i += channels
+        }
+        return result
+    }
+
+    private mutating func endBurst() {
+        inBurst = false
+        guard burstAfterSilence, burstPeak >= AudioSignalMonitor.minPeak else { return }
+        if burstFirst / burstPeak > AudioSignalMonitor.abruptRatio {
+            abruptBursts += 1
+            if burstLength <= AudioSignalMonitor.maxSpikeLength { spikes += 1 }
+        } else {
+            smoothBursts += 1
         }
     }
 }
