@@ -3,21 +3,21 @@
 <plist version="1.0">
 <dict>
 	<key>CFBundleDisplayName</key>
-	<string>That Mirror</string>
+	<string>That Mirroring</string>
 	<key>CFBundleExecutable</key>
-	<string>ThatMirror</string>
+	<string>ThatMirroring</string>
 	<key>CFBundleIconFile</key>
 	<string>AppIcon</string>
 	<key>CFBundleIdentifier</key>
 	<string>com.example.iPhoneMirror</string>
 	<key>CFBundleName</key>
-	<string>That Mirror</string>
+	<string>That Mirroring</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.3.2</string>
+	<string>1.3.3</string>
 	<key>CFBundleVersion</key>
-	<string>6</string>
+	<string>7</string>
 	<key>LSMinimumSystemVersion</key>
 	<string>14.0</string>
 	<key>NSCameraUsageDescription</key>
