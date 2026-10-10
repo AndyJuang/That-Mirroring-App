@@ -1,6 +1,6 @@
 # That Mirroring 1.4 開發進度
 
-更新：2026-10-11 01:27 台北。分支 `feat/that-mirroring-1.4`，基線 `df9f42d`（1.3.3）。
+更新：2026-10-11 01:31 台北。分支 `feat/that-mirroring-1.4`，基線 `df9f42d`（1.3.3）。
 只在 ThatMirror-wt-dev 工作；未操作主 checkout、已安裝 App、Pixel Cast 或 grok。
 
 ## Issue #3 驗收對照
@@ -43,7 +43,7 @@ App 只取 bundle 的完整 scrcpy／adb／server 工具組；缺檔才退回 `/
 
 ## 2026-10-11 第二步結果
 
-- 已推送：`fb96889`（移除錄製與基礎建置）、`e13990c`（Android／授權與封版腳本）；draft PR：<https://github.com/AndyJuang/That-Mirroring-App/pull/4>（Refs #3）。
+- 已推送：`fb96889`（移除錄製與基礎建置）、`e13990c`（Android／授權與封版腳本）、`8dc143d`（切換時暫停 Apple 與交接）；draft PR：<https://github.com/AndyJuang/That-Mirroring-App/pull/4>（Refs #3）。
 - 新增 `AndroidManager.swift`、`native/ScrcpyWindow.m`、`scripts/fetch-scrcpy.sh`、bundle／icon 驗證腳本、第三方 `licenses/`；擴充 `MirrorLogic.swift`、測試、build、README。
 - 最新 App 執行檔 SHA-256：`0e133510c64182dab4cf1b1796436048f05b7c358370c7342d713f3aeb4b9e7b`（開發版本，非 Release ZIP）。
 - 最新 gate checker：5 met（G1–G5）、3 unmet（G6 Android 實機、G7 Apple 實機、G8 尚未到 11:00 Release）；沒有 abandoned。
@@ -79,7 +79,15 @@ App 只取 bundle 的完整 scrcpy／adb／server 工具組；缺檔才退回 `/
 ## 下一步
 
 1. 開發與最後整合修正已完成，透過 helper commit＋push；既有 draft PR #4 更新為待實機／11:00 封版（不另開）。
-2. 本機實際時間仍早於 11:00；不要提前變更 Info.plist／宣稱 Release 已完成。此工作已完成開發，不需等待並消耗共享額度。
-3. 11:00 後續跑：先讀本檔、`AI_MEMORY.md`、`git log --oneline origin/main..HEAD`、`git status`。若最終 icon 已到，先依換檔步驟；code freeze 後只修阻擋 build／test 的問題。
+2. 本機實際時間仍早於 11:00；不要提前變更 Info.plist／宣稱 Release 已完成。已備妥不使用模型的本機定時封版工作，等待期間不消耗共享模型額度。
+3. 若定時工作失敗／手動續跑：11:00 後先讀本檔、`AI_MEMORY.md`、`git log --oneline origin/main..HEAD`、`git status`。若最終 icon 已到，先依換檔步驟；code freeze 後只修阻擋 build／test 的問題。
 4. 跑 `scripts/release.sh`（ZIP；若需要 DMG 用 `scripts/release.sh --dmg`），更新本表 Release 狀態與 G8 實測證據、SHA、下一步；秘密掃描只記有／沒有，再用 `.codex-git-request` commit＋push。helper 結果成功後更新 PR #4。11:30 前完成，不發 release、不打 tag。
 5. Andy 於中午測 Apple／Android／Thatcaster。正式 icon、畫面／控制／聲音／權限皆不能以自動化純邏輯代替。
+
+## 11:00 定時封版工作
+
+- `scripts/release-at-freeze.py` 在本機等待台北 2026-10-11 11:00，然後依序執行 `scripts/release.sh`、更新 Release 驗收證據、秘密掃描、請 helper commit＋push，更新 draft PR #4。沒有模型/API 呼叫；不做 DMG（可選項）、tag／GitHub Release。
+- 額外 3 個定時封版負控制通過：分支被換、worktree 有未完成修改、另一 git 請求存在時都不執行封裝／覆寫版本／請求 commit。`scripts/test.sh` 一併執行（68 Swift assertions＋3 個封版保護案例）。
+- 啟動前先 commit 此腳本；工作只在分支正確、工作目錄乾淨、沒有既有 git request 時執行。有人新增未 commit 的 final icon／程式修改時，會停下留下交接，不會把他人的未完成修改一起 commit。
+- 等待／完成／失敗與 PID：`build/release-job.json`。執行紀錄：`build/release-job.log`。兩檔都在忽略的 build/。
+- 定時工作沒有取代實機驗收；G6／G7 保持 pending。若 Mac 休眠，恢復後才執行；若程序／sandbox session被終止，必須讀紀錄並手動續跑。11:00 前 ZIP 仍未產生，版本仍 1.3.3/7。

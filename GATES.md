@@ -9,7 +9,7 @@ Scope: Remove recording, preserve Apple mirroring, bundle Android control, prepa
 - [x] G2: settings migration, adb parsing, arguments, and tool paths handle normal and invalid inputs
   CHECK: scripts/test.sh
   EXPECT: TESTS VERIFIED
-  EVIDENCE: exit=0; shell=/bin/sh; cwd=/Users/zhuangzheyun/claudeai知識庫/VIBE_開發專案/ThatMirror-wt-dev; path=66640ee3f59c/40 entries; EXPECT=matched; output-sha256=5d913efa212b717699a97ccaca1fde44fbfd9d2ffb3e27a7d87ca56b1887f6fc; output-bytes=36
+  EVIDENCE: exit=0; shell=/bin/sh; cwd=/Users/zhuangzheyun/claudeai知識庫/VIBE_開發專案/ThatMirror-wt-dev; path=66640ee3f59c/40 entries; EXPECT=matched; output-sha256=fa55643d6779d4ac329f97731aa0d1d134a1e293f9e2d25df119742bf57ed4a0; output-bytes=76
 
 - [x] G3: recording code and screen recording permission are absent, Apple preview implementation is preserved
   CHECK: python3 scripts/audit-source.py

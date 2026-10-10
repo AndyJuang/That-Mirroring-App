@@ -21,3 +21,7 @@ build/
 vendor/
 .codex-git-*
 .unlazy/
+
+# Python tooling cache
+__pycache__/
+*.pyc

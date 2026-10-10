@@ -13,3 +13,5 @@
 - GUI 煙霧在 sandbox 的 AppKit `_RegisterApplication` 中止，沒有通過畫面驗收；Apple／Android USB、權限、控制、聲音、視窗外觀與 Thatcaster 畫面來源要由 Andy 實機。最終 icon 等強尼。
 - 禁止操作主 checkout `ThatMirroring`、/Applications 已安裝 App、Pixel Cast、~/bin/pixel-cast（後兩者只讀參考），禁止 grok／pkill／killall／破壞性 git。
 - 續跑先讀 PROGRESS、本檔、`git log --oneline origin/main..HEAD`、`git status`；已通過且輸入沒變的檢查可沿用，不要重做已推送內容。
+
+- 已準備 `scripts/release-at-freeze.py` 本機定時封版（不使用模型），11:00 後先檢查 branch／clean／git request，再執行 Release、helper commit＋push和 PR 更新。狀態／PID：`build/release-job.json`，紀錄：`build/release-job.log`；讀紀錄確認成功，不能把 queued 算成 Release 完成。有人新增未 commit 修改會停下，避免自動帶入他人的未完成修改。
