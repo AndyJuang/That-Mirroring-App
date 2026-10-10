@@ -84,6 +84,8 @@ App 只取 bundle 的完整 scrcpy／adb／server 工具組；缺檔才退回 `/
 
 ## 下一步
 
+本輪（02:48 台北）：程式／測試無新增項目；G1–G5 已通過，G6/G7 等 Andy 實機，G8 等 11:00。檢查發現原定時封版程序 PID 已不存在，日誌只記錄 waiting；本輪先完成本文件提交，再重新啟動定時工作。未啟動 GUI／瀏覽器。
+
 1. 最終 icon 與本進度更新完成；build／test／秘密掃描通過後，透過 helper 獨立 commit＋push，沿用 draft PR #4。
 2. 本機實際時間仍早於 11:00；不要提前變更 Info.plist／宣稱 Release 已完成。已備妥不使用模型的本機定時封版工作，等待期間不消耗共享模型額度。
 3. 若定時工作失敗／手動續跑：11:00 後先讀本檔、`AI_MEMORY.md`、`git log --oneline origin/main..HEAD`、`git status`。若最終 icon 已到，先依換檔步驟；code freeze 後只修阻擋 build／test 的問題。
