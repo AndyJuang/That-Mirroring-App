@@ -108,7 +108,8 @@ scripts/test.sh
 最終 icon：把 1024×1024 PNG 覆蓋 `icon/AppIcon-1024.png`，跑 `scripts/build.sh`。
 如有手工製作的 `icon/AppIcon.iconset/`，則優先使用該目錄各尺寸圖檔。
 `sips` 產生各尺寸，再用 `iconutil` 編碼；若系統編碼器不可用，會使用已驗證尺寸的
-PNG-backed ICNS 封裝備援。目前 PNG 是從 1.3.3 icns 匯出的佔位圖。
+PNG-backed ICNS 封裝備援。目前使用強尼提供的紅色星星版手繪 iconset；更換最終圖時覆蓋
+`icon/AppIcon-1024.png`，若有手工尺寸圖則同步更新 `icon/AppIcon.iconset/`。
 
 ### 💡 原理解析
 基於蘋果對於隱私的限制，macOS 內建並不把透過 USB 連接的手機視為普通的網路攝影機（Webcam）。

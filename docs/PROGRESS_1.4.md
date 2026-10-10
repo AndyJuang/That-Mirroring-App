@@ -1,6 +1,6 @@
 # That Mirroring 1.4 開發進度
 
-更新：2026-10-11 01:43 台北。分支 `feat/that-mirroring-1.4`，基線 `df9f42d`（1.3.3）。
+更新：2026-10-11 02:06 台北。分支 `feat/that-mirroring-1.4`，基線 `df9f42d`（1.3.3）。
 只在 ThatMirror-wt-dev 工作；未操作主 checkout、已安裝 App、Pixel Cast 或 grok。
 
 ## Issue #3 驗收對照
@@ -67,7 +67,7 @@ App 只取 bundle 的完整 scrcpy／adb／server 工具組；缺檔才退回 `/
 
 ## 最終 icon 換檔
 
-最終 icon 已同步。後續若需替換：把 1024×1024 PNG 覆蓋 `icon/AppIcon-1024.png`，跑 `scripts/build.sh`。目前手繪各尺寸 `icon/AppIcon.iconset/` 優先使用；更新時同步替換整個 iconset，勿重縮放／重編碼其中 PNG。
+最終紅色星星版 icon 已同步。後續若要替換：把 1024×1024 PNG 覆蓋 `icon/AppIcon-1024.png`，跑 `scripts/build.sh`；若提供手繪各尺寸，將 `icon/AppIcon.iconset/` 一併替換，build 優先使用各尺寸圖，勿重縮放／重編碼其中 PNG。
 
 ## 需要 Andy 實機
 
