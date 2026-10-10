@@ -6,7 +6,7 @@
 
 ## English
 
-A native, lightweight macOS application built with Swift and SwiftUI that allows you to mirror your iPhone or iPad screen directly to your Mac via USB at near-zero latency. Perfect for presentations, recording, and live streaming.
+A native, lightweight macOS application built with Swift and SwiftUI that allows you to mirror your iPhone or iPad screen directly to your Mac via USB at near-zero latency. Perfect for presentations and live streaming. That Mirroring only displays live screens; it does not record.
 
 ### ✨ Features
 
@@ -45,23 +45,15 @@ This app is a standalone Swift file designed for rapid compilation without needi
 - macOS 14.0+
 - Swift Compiler (`swiftc`) installed (usually via Xcode Command Line Tools)
 
-**Compilation Command:**
+**Compilation Command (arm64, macOS 14+):**
 
 ```bash
-# 1. Create the app bundle structure
-mkdir -p ThatMirroring.app/Contents/MacOS
-mkdir -p ThatMirroring.app/Contents/Resources
-
-# 2. Compile the app package
-swiftc MirrorApp.swift -parse-as-library -o ThatMirroring.app/Contents/MacOS/ThatMirroring
-
-# 3. Copy resources
-cp Info.plist ThatMirroring.app/Contents/
-cp AppIcon.icns ThatMirroring.app/Contents/Resources/
-
-# 4. Re-sign the app so macOS allows it to access cameras/hardware
-codesign --sign - --force --deep ThatMirroring.app
+scripts/build.sh
+scripts/test.sh
 ```
+
+The script compiles with `swiftc -O`, regenerates the icon, and ad-hoc signs
+`build/ThatMirroring.app`. No Xcode project or developer signing certificate is needed.
 
 ### 💡 How it Works (Under the Hood)
 - By default, macOS does not treat USB-connected iOS devices as standard webcams.
@@ -72,7 +64,7 @@ codesign --sign - --force --deep ThatMirroring.app
 
 ## 繁體中文
 
-這是一款使用原生 Swift 與 SwiftUI 打造的輕量級 macOS 應用程式，它能讓你透過 USB 線以「接近零延遲」的速度，將 iPhone 或 iPad 的螢幕直接投射到你的 Mac 畫面上。非常適合用於教學簡報、螢幕錄影或是直播實況。
+這是一款使用原生 Swift 與 SwiftUI 打造的輕量級 macOS 應用程式，它能讓你透過 USB 線以「接近零延遲」的速度，將 iPhone 或 iPad 的螢幕直接投射到你的 Mac 畫面上。適合用於教學簡報及直播實況。That Mirroring 只顯示即時畫面，不提供錄製功能。
 
 ### ✨ 核心功能
 
@@ -102,23 +94,21 @@ codesign --sign - --force --deep ThatMirroring.app
 
 ### 🛠️ 如何從原始碼編譯打包
 
-本專案只有一支 SwiftUI 程式碼，不依賴龐大的 Xcode 專案即可獨立編譯。需要 macOS 14.0 以上，並安裝 Xcode（或 Xcode 指令列工具）後執行：
+本專案以 SwiftUI 與少量可測試的純邏輯檔案組成，不需要 Xcode 專案。
+需要 macOS 14.0 以上、arm64 Mac、Xcode 指令列工具：
 
 ```bash
-# 1. 建立 App Bundle 資料夾結構
-mkdir -p ThatMirroring.app/Contents/MacOS
-mkdir -p ThatMirroring.app/Contents/Resources
-
-# 2. 編譯二進位執行檔到 bundle 中
-swiftc MirrorApp.swift -parse-as-library -o ThatMirroring.app/Contents/MacOS/ThatMirroring
-
-# 3. 複製配置檔與圖示到 Bundle 中
-cp Info.plist ThatMirroring.app/Contents/
-cp AppIcon.icns ThatMirroring.app/Contents/Resources/
-
-# 4. 重新給予本機簽名（非常重要，不簽名 macOS 不會放行其讀取攝影機）
-codesign --sign - --force --deep ThatMirroring.app
+scripts/build.sh
+scripts/test.sh
 ```
+
+輸出：`build/ThatMirroring.app`。每次建置重新產生圖示、以 `swiftc -O` 編譯，
+並對內含 Mach-O 與 App 做 ad-hoc 簽章及嚴格驗證。
+
+最終 icon：把 1024×1024 PNG 覆蓋 `icon/AppIcon-1024.png`，跑 `scripts/build.sh`。
+如有手工製作的 `icon/AppIcon.iconset/`，則優先使用該目錄各尺寸圖檔。
+`sips` 產生各尺寸，再用 `iconutil` 編碼；若系統編碼器不可用，會使用已驗證尺寸的
+PNG-backed ICNS 封裝備援。目前 PNG 是從 1.3.3 icns 匯出的佔位圖。
 
 ### 💡 原理解析
 基於蘋果對於隱私的限制，macOS 內建並不把透過 USB 連接的手機視為普通的網路攝影機（Webcam）。

@@ -1,13 +1,13 @@
 import SwiftUI
 import AVFoundation
 import CoreMediaIO
-import ImageIO
-import UniformTypeIdentifiers
-import ScreenCaptureKit
-import VideoToolbox
+
+// Explicit property-wrapper alias avoids Xcode 27 State macro expansion in a sandbox.
+typealias ViewState<Value> = SwiftUI.State<Value>
 
 @main
-struct iPhoneMirrorApp: App {
+struct ThatMirroringApp: App {
+    init() { migrateLegacyRecordingSettings(UserDefaults.standard) }
     @StateObject private var captureManager = CaptureManager()
     @AppStorage("SelectedAnimation") private var selectedAnimation: AnimationType = .cursor
     @AppStorage("AutoCropBlackBars") private var autoCropBlackBars: Bool = true
@@ -78,14 +78,7 @@ struct iPhoneMirrorApp: App {
                 }
             }
             
-            CommandMenu("Record") {
-                Button(action: {
-                    NotificationCenter.default.post(name: NSNotification.Name("ToggleRecording"), object: nil)
-                }) {
-                    Text("Start / Stop GIF Recording")
-                }
-                .keyboardShortcut("r", modifiers: [.command])
-            }
+
         }
     }
 }
@@ -117,8 +110,8 @@ struct TapData: Identifiable {
 struct ClickAnimationView: View {
     let tap: TapData
     let type: AnimationType
-    @State private var scale: CGFloat = 0.5
-    @State private var opacity: Double = 1.0
+    @ViewState private var scale: CGFloat = 0.5
+    @ViewState private var opacity: Double = 1.0
     
     var body: some View {
         Group {
@@ -156,11 +149,10 @@ struct ClickAnimationView: View {
 
 struct ContentView: View {
     @ObservedObject var captureManager: CaptureManager
-    @StateObject private var gifRecorder = GifRecorder()
     @AppStorage("SelectedAnimation") private var selectedAnimation: AnimationType = .cursor
-    @State private var taps: [TapData] = []
-    @State private var showAudioHint = false
-    @State private var audioHintToken = UUID()
+    @ViewState private var taps: [TapData] = []
+    @ViewState private var showAudioHint = false
+    @ViewState private var audioHintToken = UUID()
     
     var body: some View {
         ZStack {
@@ -168,7 +160,7 @@ struct ContentView: View {
             
             if captureManager.hasDevice {
                 PreviewView(session: captureManager.session, geometry: captureManager.geometry) { location in
-                    guard selectedAnimation != .none || gifRecorder.isRecording else { return }
+                    guard selectedAnimation != .none else { return }
                     let tap = TapData(location: location)
                     taps.append(tap)
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
@@ -201,22 +193,7 @@ struct ContentView: View {
                                 }
                             }
                             
-                            if gifRecorder.isRecording {
-                                VStack {
-                                    HStack {
-                                        Spacer()
-                                        Text("\(gifRecorder.timeRemaining)s")
-                                            .font(.system(size: 24, weight: .bold, design: .monospaced))
-                                            .foregroundColor(.white)
-                                            .padding(.horizontal, 16)
-                                            .padding(.vertical, 8)
-                                            .background(Color.black.opacity(0.6))
-                                            .cornerRadius(8)
-                                            .padding()
-                                    }
-                                    Spacer()
-                                }
-                            }
+
                         }
                         .allowsHitTesting(false)
                     )
@@ -229,9 +206,7 @@ struct ContentView: View {
                             if audioHintToken == token { showAudioHint = false }
                         }
                     }
-                    .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("ToggleRecording"))) { _ in
-                        gifRecorder.toggleRecording()
-                    }
+
             } else {
                 VStack(spacing: 20) {
                     Image(systemName: "iphone.and.arrow.forward")
@@ -249,122 +224,6 @@ struct ContentView: View {
             }
         }
         .frame(minWidth: 200, minHeight: 200)
-    }
-}
-
-class GifRecorder: NSObject, ObservableObject, SCStreamOutput {
-    @Published var isRecording = false
-    @Published var timeRemaining: Int = 5
-    private var images: [CGImage] = []
-    private var stream: SCStream?
-    private var lastFrameTime: TimeInterval = 0
-    private var countdownTimer: Timer?
-    
-    func toggleRecording() {
-        if isRecording {
-            stopRecording()
-        } else {
-            startRecording()
-        }
-    }
-    
-    private func startRecording() {
-        images.removeAll()
-        lastFrameTime = 0
-        timeRemaining = 5
-        
-        SCShareableContent.getExcludingDesktopWindows(true, onScreenWindowsOnly: true) { [weak self] content, error in
-            guard let self = self, let content = content else {
-                DispatchQueue.main.async { self?.isRecording = false }
-                return
-            }
-            
-            // Find our app's window
-            guard let app = content.applications.first(where: { $0.processID == pid_t(ProcessInfo.processInfo.processIdentifier) }),
-                  let window = content.windows.first(where: { $0.owningApplication?.processID == app.processID }) else {
-                DispatchQueue.main.async { self.isRecording = false }
-                return
-            }
-            
-            let filter = SCContentFilter(desktopIndependentWindow: window)
-            let config = SCStreamConfiguration()
-            config.width = Int(window.frame.width * 2) // Retina scale
-            config.height = Int(window.frame.height * 2)
-            config.minimumFrameInterval = CMTime(value: 1, timescale: 10)
-            config.showsCursor = true
-            
-            let stream = SCStream(filter: filter, configuration: config, delegate: nil)
-            self.stream = stream
-            try? stream.addStreamOutput(self, type: .screen, sampleHandlerQueue: .main)
-            stream.startCapture() { error in
-                DispatchQueue.main.async {
-                    if error == nil {
-                        self.isRecording = true
-                        self.startCountdown()
-                    } else {
-                        self.isRecording = false
-                    }
-                }
-            }
-        }
-    }
-    
-    private func startCountdown() {
-        countdownTimer?.invalidate()
-        countdownTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
-            guard let self = self else { return }
-            if self.timeRemaining > 0 {
-                self.timeRemaining -= 1
-            }
-            if self.timeRemaining <= 0 {
-                self.stopRecording()
-            }
-        }
-    }
-    
-    private func stopRecording() {
-        isRecording = false
-        countdownTimer?.invalidate()
-        countdownTimer = nil
-        stream?.stopCapture()
-        stream = nil
-        
-        guard !images.isEmpty else { return }
-        
-        let path = FileManager.default.urls(for: .downloadsDirectory, in: .userDomainMask)[0].appendingPathComponent("MirrorRecording-\(Int(Date().timeIntervalSince1970)).gif")
-        
-        guard let dest = CGImageDestinationCreateWithURL(path as CFURL, UTType.gif.identifier as CFString, images.count, nil) else { return }
-        
-        let frameProp = [kCGImagePropertyGIFDictionary as String: [kCGImagePropertyGIFDelayTime as String: 0.1]]
-        let gifProp = [kCGImagePropertyGIFDictionary as String: [kCGImagePropertyGIFLoopCount as String: 0]]
-        
-        CGImageDestinationSetProperties(dest, gifProp as CFDictionary)
-        
-        for img in images {
-            CGImageDestinationAddImage(dest, img, frameProp as CFDictionary)
-        }
-        
-        if CGImageDestinationFinalize(dest) {
-            NSWorkspace.shared.activateFileViewerSelecting([path])
-        }
-    }
-    
-    func stream(_ stream: SCStream, didOutputSampleBuffer sampleBuffer: CMSampleBuffer, of type: SCStreamOutputType) {
-        guard type == .screen,
-              let pixelBuffer = sampleBuffer.imageBuffer else { return }
-        
-        let currentTime = Date().timeIntervalSince1970
-        guard currentTime - lastFrameTime >= 0.1 else { return }
-        lastFrameTime = currentTime
-        
-        var cgImage: CGImage?
-        VTCreateCGImageFromCVPixelBuffer(pixelBuffer, options: nil, imageOut: &cgImage)
-        
-        if let cgImage = cgImage {
-            DispatchQueue.main.async {
-                self.images.append(cgImage)
-            }
-        }
     }
 }
 
@@ -402,11 +261,11 @@ class CaptureManager: NSObject, ObservableObject, AVCaptureVideoDataOutputSample
     private let videoDataOutput = AVCaptureVideoDataOutput()
     private let audioPreviewOutput = AVCaptureAudioPreviewOutput()
     private let audioDataOutput = AVCaptureAudioDataOutput()
-    private let audioQueue = DispatchQueue(label: "com.example.iPhoneMirror.audioQueue", qos: .userInitiated)
+    private let audioQueue = DispatchQueue(label: "ThatMirroring.audioQueue", qos: .userInitiated)
     private var audioMonitor = AudioSignalMonitor() // 只在 audioQueue 上存取
     // 每次 setupSession 加 1（main 上存取）；音訊判斷帶著當時的版本，過期的結果直接丟掉，避免重新設定後卡在靜音。
     private var sessionGeneration = 0
-    private let captureQueue = DispatchQueue(label: "com.example.iPhoneMirror.captureQueue", qos: .userInitiated)
+    private let captureQueue = DispatchQueue(label: "ThatMirroring.captureQueue", qos: .userInitiated)
     // 以下狀態只在 captureQueue 上存取。
     private var blackBarDetector = BlackBarDetector()
     private var lastDetectTime: CFTimeInterval = 0
