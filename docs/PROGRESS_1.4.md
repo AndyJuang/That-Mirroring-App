@@ -1,6 +1,6 @@
 # That Mirroring 1.4 開發進度
 
-更新：2026-10-11 02:06 台北。分支 `feat/that-mirroring-1.4`，基線 `df9f42d`（1.3.3）。
+更新：2026-10-11 03:32 台北。分支 `feat/that-mirroring-1.4`，基線 `df9f42d`（1.3.3）。
 只在 ThatMirror-wt-dev 工作；未操作主 checkout、已安裝 App、Pixel Cast 或 grok。
 
 ## Issue #3 驗收對照
@@ -84,7 +84,7 @@ App 只取 bundle 的完整 scrcpy／adb／server 工具組；缺檔才退回 `/
 
 ## 下一步
 
-本輪（02:48 台北）：程式／測試無新增項目；G1–G5 已通過，G6/G7 等 Andy 實機，G8 等 11:00。檢查發現原定時封版程序 PID 已不存在，日誌只記錄 waiting；本輪先完成本文件提交，再重新啟動定時工作。未啟動 GUI／瀏覽器。
+本輪（03:32 台北）：程式／測試無新增項目；G1–G5 已通過，G6/G7 等 Andy 實機，G8 等 11:00。原定時封版程序 PID 42112 已不存在；已在持續執行工作階段重新啟動 `scripts/release-at-freeze.py`，`build/release-job.json` 顯示 PID 50100、狀態 `waiting`、目標 11:00。工作樹乾淨且沒有待處理 git request。未啟動 GUI／瀏覽器。
 
 1. 最終 icon 與本進度更新完成；build／test／秘密掃描通過後，透過 helper 獨立 commit＋push，沿用 draft PR #4。
 2. 本機實際時間仍早於 11:00；不要提前變更 Info.plist／宣稱 Release 已完成。已備妥不使用模型的本機定時封版工作，等待期間不消耗共享模型額度。
