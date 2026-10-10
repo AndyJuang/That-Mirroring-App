@@ -1,6 +1,6 @@
 # That Mirroring 1.4 開發進度
 
-更新：2026-10-11 01:15 台北。分支 `feat/that-mirroring-1.4`，基線 `df9f42d`（1.3.3）。
+更新：2026-10-11 01:25 台北。分支 `feat/that-mirroring-1.4`，基線 `df9f42d`（1.3.3）。
 只在 ThatMirror-wt-dev 工作；未操作主 checkout、已安裝 App、Pixel Cast 或 grok。
 
 ## Issue #3 驗收對照
@@ -9,21 +9,21 @@
 | --- | --- | --- |
 | That Mirroring 改名 | 完成 | 顯示名稱既有正確；App 型別與 queue 已改名。保留 `com.example.iPhoneMirror` 作為既有設定／權限識別，不作 App 名稱；裝置說明中的 iPhone/iPad 是產品名稱。 |
 | 移除錄製 | 完成 | Record 選單、錄製倒數、GifRecorder、ScreenCaptureKit、GIF/VideoToolbox imports 及 NSScreenCaptureUsageDescription 已移除。基線沒有 AVAssetWriter。 |
-| 舊錄製設定 | 完成 | 啟動時移除已知錄製設定；未知舊 key 永不讀取。16 項 assertions 包含格式錯誤、重複遷移及保留裝置／音訊／特效／裁切設定。 |
+| 舊錄製設定 | 完成 | 啟動時移除已知錄製設定；未知舊 key 永不讀取。68 項 assertions 包含格式錯誤、重複遷移及保留裝置／音訊／特效／裁切設定。 |
 | iPhone/iPad／擷取卡 | 部分 | preview、crop、音訊分析、縮放／聚光燈／中鍵拖曳實作與基線逐段一致；USB／權限／聲音需要實機。 |
-| Android UX／控制 | 未做 | 下一步加入 adb 清單與 scrcpy 程序管理。 |
-| scrcpy/adb 打包與授權 | 部分 | 官方 scrcpy 4.0 aarch64 套件已下载並核對 SHA；只有系統動態依賴。尚未接 build／附授權。 |
+| Android UX／控制 | 部分 | Device 選單與 App 內中文清單／四點提示完成；狀態、指定 serial、全螢幕／置頂／聲音選項、關閉／Quit 的 owned Process 結束完成。實機未驗收。 |
+| scrcpy/adb 打包與授權 | 完成 | 固定官方 scrcpy 4.0，自含 adb 37.0.0；fetch SHA 驗證、bundle 複製、Apache LICENSE、adb NOTICE 及靜態依賴授權全部完成。每個 Mach-O arm64／strict 簽章／otool 系統依賴驗證通過。 |
 | 新 icon | 部分 | 可換檔流程完成；強尼最終圖未到，先從 1.3.3 icns 匯出最大 1024 PNG。 |
 | Thatcaster 畫面來源 | 部分 | 本 App 仍輸出一般 macOS 視窗，需 Andy 在 Thatcaster 選取並確認 USB／Android 視窗畫面。 |
-| 建置／測試 | 部分 | 首輪 build＋test 成功（arm64，ad-hoc，deep strict）。Android 四類邏輯測試待加。 |
-| 11:00 後 Release | 未做 | 尚未到 freeze；Info.plist 仍 1.3.3/7。ZIP/DMG 尚未產出，待時間確認。 |
+| 建置／測試 | 完成（自動化） | arm64／ad-hoc／deep strict 通過；68 assertions（adb 解析、設定遷移、scrcpy 參數、bundle 路徑及程序生命週期）。GATES:G1–G5 已有成功執行證據。GUI／USB 仍需 Andy。 |
+| 11:00 後 Release | 未做（時間未到） | `scripts/release.sh [--dmg]` 已備妥，11:00 前明確拒絕且不修改版本。Info.plist 仍 1.3.3/7；11:00 後會設為 1.4.0/8，build＋test、ZIP 解壓簽章驗證、SHA 自動寫回本檔。 |
 
 ## 修改檔案／本輪驗證
 
 - `MirrorApp.swift`、`MirrorLogic.swift`、`Info.plist`：移除錄製、啟動遷移；保留 Apple 擷取核心。
 - `scripts/build.sh`／`test.sh`／`make-icon.sh`／`pack-icon.py`／`audit-source.py`／`check-secrets.py`、`tests/main.swift`、`icon/AppIcon-1024.png`、`AppIcon.icns`、README、.gitignore、GATES。
 - `scripts/build.sh`：成功，`codesign --verify --deep --strict` 成功，arm64 成功；輸出 `build/ThatMirroring.app`。
-- `scripts/test.sh`：16 assertions 成功；`scripts/audit-source.py`：成功，包含禁用符號正控制與基線比對。
+- `scripts/test.sh`：68 assertions 成功（含 SIGTERM 無反應時僅對自己子程序 SIGKILL、adb 逾時與兩個超過 pipe 容量的輸出串流）；`scripts/audit-source.py`：成功，包含禁用符號正控制與基線比對。
 - Xcode 27 的 `@State` 改用同一 property wrapper 的別名 `@ViewState`，避免巨集 plugin 在 Codex sandbox 的 nested sandbox 失敗；未停用／繞過 sandbox。
 - 這台環境 `iconutil -c icns` 對原 icns 匯出的各尺寸也回 Invalid Iconset。流程仍優先用 iconutil，失敗才直接封裝經驗證的 PNG ICNS chunks。`iconutil -c iconset` 解碼備援輸出成功，最大尺寸確為 1024×1024。
 - 秘密掃描：沒有（commit 前執行，僅記有／沒有）。
@@ -35,7 +35,20 @@
 SHA-256：`f5167fe047fe4a2ae2c2ea8634c7145a4d64d0b6005f24bb45639a965b8c60d4`。
 含 adb 37.0.0（universal、含 arm64）。只讀取 Homebrew 版本作參考；不使用其 dylib。
 Android SDK platform-tools 37.0.0 ZIP（官方 Google）：`094a1395683c509fd4d48667da0d8b5ef4d42b2abfcd29f2e8149e2f989357c7`，供提取 adb 原始授權聲明。
-`vendor/` 已忽略；下載脚本及第三方授權於下一步完成。
+`vendor/` 已忽略；`scripts/fetch-scrcpy.sh` 每次核對 archive SHA，再重新解壓，避免使用改動後的快取二進位。
+套件位置：`build/ThatMirroring.app/Contents/Resources/scrcpy/`。
+App 只取 bundle 的完整 scrcpy／adb／server 工具組；缺檔才退回 `/opt/homebrew/bin`＋`/opt/homebrew/share/scrcpy/scrcpy-server`，App 內明示備援。實際 build 未用 Homebrew，未需 install_name_tool。
+授權：`LICENSE`（Apache-2.0）、`THIRD-PARTY-NOTICES.md`、`licenses/adb/NOTICE.txt`（Google ZIP 內完整多元件授權），及 FFmpeg LGPL2.1、SDL/zlib、dav1d BSD、libusb LGPL。完整來源與重建路徑記於聲明；未將上游 static code 接入本 App。
+另有本專案 `native/ScrcpyWindow.m` 編出的獨立 ad-hoc `ThatMirroringWindow.dylib`，只在自己啟動的 scrcpy 注入，保持 SDL 控制、隱藏標題列／深色／交通燈；監測 host 結束以防殘留視窗。dyld 載入檢查通過，硬體視窗外觀需實測。
+
+## 2026-10-11 第二步結果
+
+- 第一個 commit：`fb96889` 已推送；draft PR：<https://github.com/AndyJuang/That-Mirroring-App/pull/4>（Refs #3）。
+- 新增 `AndroidManager.swift`、`native/ScrcpyWindow.m`、`scripts/fetch-scrcpy.sh`、bundle／icon 驗證腳本、第三方 `licenses/`；擴充 `MirrorLogic.swift`、測試、build、README。
+- 最新 App 執行檔 SHA-256：`eabd422b6d23ad84fa0dea07cb0f76371b2c175194661c7754b8e1c076ebfdbf`（開發版本，非 Release ZIP）。
+- 最新 gate checker：5 met（G1–G5）、3 unmet（G6 Android 實機、G7 Apple 實機、G8 尚未到 11:00 Release）；沒有 abandoned。
+- GUI 煙霧：嘗試直接執行自己 build 的 App，3 秒內 SIGABRT；診斷在 HIServices `_RegisterApplication`／AppKit 初始化，尚未進入擷取或 UI。Codex sandbox 中 GUI 註冊不可用，未驗證畫面；該次程序已結束，未操作已安裝版，未允許／變更相機權限。沒有以其他方式繞過 sandbox。
+- 所有自動檢查成功，但不能把上述 smoke 計為通過。需要 Andy 用 Finder 開 `build/ThatMirroring.app` 做真正 GUI／權限／實機驗收。
 
 ## 最終 icon 換檔
 
@@ -57,4 +70,8 @@ Android SDK platform-tools 37.0.0 ZIP（官方 Google）：`094a1395683c509fd4d4
 
 ## 下一步
 
-完成 Android 管理、bundle-only 工具解析／fallback 提示、授權與 fetch 腳本；擴充純邏輯測試，build＋test 綠後小步 commit＋push並開一個 draft PR。
+1. 先完成本輪 Android 整合 commit＋push，更新既有 draft PR #4（不另開）。
+2. 本機實際時間仍早於 11:00；不要提前變更 Info.plist／宣稱 Release 已完成。此工作已完成開發，不需等待並消耗共享額度。
+3. 11:00 後續跑：先讀本檔、`AI_MEMORY.md`、`git log --oneline origin/main..HEAD`、`git status`。若最終 icon 已到，先依換檔步驟；code freeze 後只修阻擋 build／test 的問題。
+4. 跑 `scripts/release.sh`（ZIP；若需要 DMG 用 `scripts/release.sh --dmg`），更新本表 Release 狀態與 G8 實測證據、SHA、下一步；秘密掃描只記有／沒有，再用 `.codex-git-request` commit＋push。helper 結果成功後更新 PR #4。11:30 前完成，不發 release、不打 tag。
+5. Andy 於中午測 Apple／Android／Thatcaster。正式 icon、畫面／控制／聲音／權限皆不能以自動化純邏輯代替。

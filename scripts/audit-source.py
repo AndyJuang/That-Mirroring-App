@@ -10,10 +10,8 @@ assert 'NSScreenCaptureUsageDescription' not in plist
 assert plist['CFBundleName'] == plist['CFBundleDisplayName'] == 'That Mirroring'
 assert 'iPhoneMirrorApp' not in source
 baseline = subprocess.check_output(['git', 'show', 'df9f42d:MirrorApp.swift'], text=True)
-# The preview, crop, audio-monitor and mouse-event implementations are unchanged.
-start = '// 原始影像尺寸'
-assert source[source.index(start):] == baseline[baseline.index(start):]
-start = 'extension CaptureManager {'
-end = '// 原始影像尺寸'
-assert source[source.index(start):source.index(end)] == baseline[baseline.index(start):baseline.index(end)]
+# Apart from queue labels, the entire Apple capture/preview/audio/mouse core is unchanged.
+start = 'class CaptureManager:'
+expected = baseline[baseline.index(start):].replace('com.example.iPhoneMirror.audioQueue','ThatMirroring.audioQueue').replace('com.example.iPhoneMirror.captureQueue','ThatMirroring.captureQueue')
+assert source[source.index(start):] == expected
 print('SOURCE VERIFIED')

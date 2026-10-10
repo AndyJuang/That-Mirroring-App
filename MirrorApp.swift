@@ -9,17 +9,20 @@ typealias ViewState<Value> = SwiftUI.State<Value>
 struct ThatMirroringApp: App {
     init() { migrateLegacyRecordingSettings(UserDefaults.standard) }
     @StateObject private var captureManager = CaptureManager()
+    @StateObject private var androidManager = AndroidManager()
     @AppStorage("SelectedAnimation") private var selectedAnimation: AnimationType = .cursor
     @AppStorage("AutoCropBlackBars") private var autoCropBlackBars: Bool = true
     
     var body: some Scene {
-        WindowGroup {
-            ContentView(captureManager: captureManager)
+        WindowGroup("That Mirroring") {
+            ContentView(captureManager: captureManager, androidManager: androidManager)
         }
         .windowStyle(HiddenTitleBarWindowStyle())
         .commands {
             CommandMenu("Device") {
                 Button(action: {
+                    androidManager.stopMirror()
+                    androidManager.showSetup = false
                     captureManager.selectedDeviceID = nil
                 }) {
                     Text("Auto Detect")
@@ -55,6 +58,8 @@ struct ThatMirroringApp: App {
                 
                 ForEach(captureManager.availableDevices, id: \.uniqueID) { device in
                     Button(action: {
+                        androidManager.stopMirror()
+                        androidManager.showSetup = false
                         captureManager.selectedDeviceID = device.uniqueID
                     }) {
                         Text(device.localizedName + (device.hasMediaType(.muxed) ? " (Screen)" : " (Camera)"))
@@ -62,6 +67,19 @@ struct ThatMirroringApp: App {
                             Image(systemName: "checkmark")
                         }
                     }
+                }
+                Divider()
+                Button("Android：連線步驟／視窗選項") { androidManager.showSetup = true; androidManager.refresh() }
+                Button("重新整理 Android 裝置") { androidManager.refresh() }
+                    .disabled(androidManager.isRefreshing)
+                ForEach(androidManager.devices) { device in
+                    Button { androidManager.start(device) } label: {
+                        Text("Android · \(device.model)（\(device.statusLabel)）")
+                        if androidManager.selectedSerial == device.serial { Image(systemName: "checkmark") }
+                    }
+                }
+                if androidManager.selectedSerial != nil {
+                    Button("停止 Android 鏡像") { androidManager.stopMirror() }
                 }
             }
             
@@ -149,6 +167,7 @@ struct ClickAnimationView: View {
 
 struct ContentView: View {
     @ObservedObject var captureManager: CaptureManager
+    @ObservedObject var androidManager: AndroidManager
     @AppStorage("SelectedAnimation") private var selectedAnimation: AnimationType = .cursor
     @ViewState private var taps: [TapData] = []
     @ViewState private var showAudioHint = false
@@ -158,7 +177,9 @@ struct ContentView: View {
         ZStack {
             Color.black.edgesIgnoringSafeArea(.all)
             
-            if captureManager.hasDevice {
+            if androidManager.showSetup {
+                AndroidSetupView(manager: androidManager)
+            } else if captureManager.hasDevice {
                 PreviewView(session: captureManager.session, geometry: captureManager.geometry) { location in
                     guard selectedAnimation != .none else { return }
                     let tap = TapData(location: location)
@@ -212,10 +233,11 @@ struct ContentView: View {
                     Image(systemName: "iphone.and.arrow.forward")
                         .font(.system(size: 80))
                         .foregroundColor(.gray)
-                    Text("Connect your iPhone via USB")
+                    Text("連接 iPhone／iPad 或 Android")
                         .font(.system(size: 24, weight: .bold))
                         .foregroundColor(.white)
-                    Text("You can select your camera from the 'Device' menu in the Mac menu bar.\nYou may need to unlock your iPhone and 'Trust' this computer.")
+                    Text("iPhone／iPad：接上 USB、解鎖並信任這台 Mac。\n擷取卡或相機：從 Device 選單選擇裝置。")
+                    Button("Android 連線步驟與裝置清單") { androidManager.showSetup = true; androidManager.refresh() }
                         .font(.body)
                         .foregroundColor(.gray)
                         .multilineTextAlignment(.center)
