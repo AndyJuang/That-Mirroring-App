@@ -84,7 +84,7 @@ App 只取 bundle 的完整 scrcpy／adb／server 工具組；缺檔才退回 `/
 
 ## 下一步
 
-本輪（03:32 台北）：程式／測試無新增項目；G1–G5 已通過，G6/G7 等 Andy 實機，G8 等 11:00。原定時封版程序 PID 42112 已不存在；已在持續執行工作階段重新啟動 `scripts/release-at-freeze.py`，`build/release-job.json` 顯示 PID 50100、狀態 `waiting`、目標 11:00。工作樹乾淨且沒有待處理 git request。未啟動 GUI／瀏覽器。
+本輪（03:32 台北）：程式／測試無新增項目；G1–G5 已通過，G6/G7 等 Andy 實機，G8 等 11:00。原定時封版程序 PID 42112 已不存在；已在持續執行工作階段重新啟動 `scripts/release-at-freeze.py`，`build/release-job.json` 顯示 PID 62511、狀態 `waiting`、目標 11:00。工作樹乾淨且沒有待處理 git request。未啟動 GUI／瀏覽器。
 
 1. 最終 icon 與本進度更新完成；build／test／秘密掃描通過後，透過 helper 獨立 commit＋push，沿用 draft PR #4。
 2. 本機實際時間仍早於 11:00；不要提前變更 Info.plist／宣稱 Release 已完成。已備妥不使用模型的本機定時封版工作，等待期間不消耗共享模型額度。
