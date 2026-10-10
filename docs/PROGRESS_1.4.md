@@ -1,6 +1,6 @@
 # That Mirroring 1.4 開發進度
 
-更新：2026-10-11 01:25 台北。分支 `feat/that-mirroring-1.4`，基線 `df9f42d`（1.3.3）。
+更新：2026-10-11 01:27 台北。分支 `feat/that-mirroring-1.4`，基線 `df9f42d`（1.3.3）。
 只在 ThatMirror-wt-dev 工作；未操作主 checkout、已安裝 App、Pixel Cast 或 grok。
 
 ## Issue #3 驗收對照
@@ -43,12 +43,20 @@ App 只取 bundle 的完整 scrcpy／adb／server 工具組；缺檔才退回 `/
 
 ## 2026-10-11 第二步結果
 
-- 第一個 commit：`fb96889` 已推送；draft PR：<https://github.com/AndyJuang/That-Mirroring-App/pull/4>（Refs #3）。
+- 已推送：`fb96889`（移除錄製與基礎建置）、`e13990c`（Android／授權與封版腳本）；draft PR：<https://github.com/AndyJuang/That-Mirroring-App/pull/4>（Refs #3）。
 - 新增 `AndroidManager.swift`、`native/ScrcpyWindow.m`、`scripts/fetch-scrcpy.sh`、bundle／icon 驗證腳本、第三方 `licenses/`；擴充 `MirrorLogic.swift`、測試、build、README。
-- 最新 App 執行檔 SHA-256：`eabd422b6d23ad84fa0dea07cb0f76371b2c175194661c7754b8e1c076ebfdbf`（開發版本，非 Release ZIP）。
+- 最新 App 執行檔 SHA-256：`0e133510c64182dab4cf1b1796436048f05b7c358370c7342d713f3aeb4b9e7b`（開發版本，非 Release ZIP）。
 - 最新 gate checker：5 met（G1–G5）、3 unmet（G6 Android 實機、G7 Apple 實機、G8 尚未到 11:00 Release）；沒有 abandoned。
 - GUI 煙霧：嘗試直接執行自己 build 的 App，3 秒內 SIGABRT；診斷在 HIServices `_RegisterApplication`／AppKit 初始化，尚未進入擷取或 UI。Codex sandbox 中 GUI 註冊不可用，未驗證畫面；該次程序已結束，未操作已安裝版，未允許／變更相機權限。沒有以其他方式繞過 sandbox。
+- 環境控制實驗：只呼叫 `NSApplication.sharedApplication` 的最小 Cocoa executable 可初始化；同一程式放進獨立 ad-hoc `.app` bundle 直接執行也 SIGABRT（-6），支持 bundle 的系統註冊限制，不是鏡像程式碼造成。兩次控制程序均結束，無相機／USB 程式碼。
 - 所有自動檢查成功，但不能把上述 smoke 計為通過。需要 Andy 用 Finder 開 `build/ThatMirroring.app` 做真正 GUI／權限／實機驗收。
+
+## 最後整合修正與交接
+
+- Android 面板顯示時暫停 Apple session，返回 Apple 畫面時以原 setupSession 恢復，避免隱藏攝影機占用／聲音混播；未更改 Apple 擷取／裁切／zoom／spotlight／audio monitor 的原實作。
+- 修正後 build／68 assertions／基線比對均通過，strict 簽章與 bundle 驗證通過；GUI／USB 切換仍需 Andy 實機。
+- 新增專案 `AI_MEMORY.md`，供 11:00 後續跑。中樞 agent-worklog 未有此任務索引，且位於 sandbox 可寫範圍外；交接保留在此 worktree，未寫入中樞或無關任務。
+- `scripts/release.sh` 的提前執行負測試通過：明確拒絕、Info.plist 原樣、無 1.4.0 ZIP。
 
 ## 最終 icon 換檔
 
@@ -70,7 +78,7 @@ App 只取 bundle 的完整 scrcpy／adb／server 工具組；缺檔才退回 `/
 
 ## 下一步
 
-1. 先完成本輪 Android 整合 commit＋push，更新既有 draft PR #4（不另開）。
+1. 開發與最後整合修正已完成，透過 helper commit＋push；既有 draft PR #4 更新為待實機／11:00 封版（不另開）。
 2. 本機實際時間仍早於 11:00；不要提前變更 Info.plist／宣稱 Release 已完成。此工作已完成開發，不需等待並消耗共享額度。
 3. 11:00 後續跑：先讀本檔、`AI_MEMORY.md`、`git log --oneline origin/main..HEAD`、`git status`。若最終 icon 已到，先依換檔步驟；code freeze 後只修阻擋 build／test 的問題。
 4. 跑 `scripts/release.sh`（ZIP；若需要 DMG 用 `scripts/release.sh --dmg`），更新本表 Release 狀態與 G8 實測證據、SHA、下一步；秘密掃描只記有／沒有，再用 `.codex-git-request` commit＋push。helper 結果成功後更新 PR #4。11:30 前完成，不發 release、不打 tag。

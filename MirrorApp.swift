@@ -246,11 +246,18 @@ struct ContentView: View {
             }
         }
         .frame(minWidth: 200, minHeight: 200)
+        .onChange(of: androidManager.showSetup) { _, showingAndroid in
+            captureManager.isSuspendedForAndroid = showingAndroid
+        }
     }
 }
 
 class CaptureManager: NSObject, ObservableObject, AVCaptureVideoDataOutputSampleBufferDelegate, AVCaptureAudioDataOutputSampleBufferDelegate {
     @Published var hasDevice = false
+    // Do not keep a hidden Apple camera/audio session running behind Android setup.
+    var isSuspendedForAndroid = false {
+        didSet { if isSuspendedForAndroid != oldValue { setupSession() } }
+    }
     // 收到的手機聲音是壞訊號（見 AudioSignalMonitor）時為 true，期間自動靜音並在畫面上提示。
     @Published var audioSignalBroken = false
     @Published var availableDevices: [AVCaptureDevice] = []
@@ -367,6 +374,13 @@ class CaptureManager: NSObject, ObservableObject, AVCaptureVideoDataOutputSample
     }
 
     func setupSession() {
+        if isSuspendedForAndroid {
+            sessionGeneration += 1
+            audioSignalBroken = false
+            hasDevice = false
+            captureQueue.async { if self.session.isRunning { self.session.stopRunning() } }
+            return
+        }
         // 第一次開啟「播放裝置聲音」時先要麥克風權限，拿到結果後再重新設定。
         if playDeviceAudio && AVCaptureDevice.authorizationStatus(for: .audio) == .notDetermined {
             AVCaptureDevice.requestAccess(for: .audio) { _ in
