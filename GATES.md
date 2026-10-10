@@ -24,7 +24,7 @@ Scope: Remove recording, preserve Apple mirroring, bundle Android control, prepa
 - [x] G5: generated icon contains all macOS sizes, replaceable with one 1024 PNG
   CHECK: python3 scripts/verify-icon.py
   EXPECT: ICON VERIFIED
-  EVIDENCE: exit=0; shell=/bin/sh; cwd=/Users/zhuangzheyun/claudeai知識庫/VIBE_開發專案/ThatMirror-wt-dev; path=66640ee3f59c/40 entries; EXPECT=matched; output-sha256=0af2ca8298d1cb0c67bfaac81fbbfc413ae6e2f09d171bcbe634b9b5fac9cf22; output-bytes=14
+  EVIDENCE: exit=0 after final red-star icon sync; all 10 hand-drawn PNG sizes present, 16/32 PNGs byte-identical to source; build generated ICNS through PNG fallback after iconutil Invalid Iconset; python3 scripts/verify-icon.py = ICON VERIFIED; no GUI preview.
 - [ ] G6: Android USB control, native window fullscreen/topmost and closure work on a physical device
   EVIDENCE: pending; requires Andy hardware acceptance
 - [ ] G7: iPhone/iPad/capture card display, audio, zoom, spotlight and middle-button drag work on physical devices

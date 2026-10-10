@@ -1,6 +1,6 @@
 # That Mirroring 1.4 開發進度
 
-更新：2026-10-11 01:31 台北。分支 `feat/that-mirroring-1.4`，基線 `df9f42d`（1.3.3）。
+更新：2026-10-11 01:43 台北。分支 `feat/that-mirroring-1.4`，基線 `df9f42d`（1.3.3）。
 只在 ThatMirror-wt-dev 工作；未操作主 checkout、已安裝 App、Pixel Cast 或 grok。
 
 ## Issue #3 驗收對照
@@ -13,7 +13,7 @@
 | iPhone/iPad／擷取卡 | 部分 | preview、crop、音訊分析、縮放／聚光燈／中鍵拖曳實作與基線逐段一致；USB／權限／聲音需要實機。 |
 | Android UX／控制 | 部分 | Device 選單與 App 內中文清單／四點提示完成；狀態、指定 serial、全螢幕／置頂／聲音選項、關閉／Quit 的 owned Process 結束完成。實機未驗收。 |
 | scrcpy/adb 打包與授權 | 完成 | 固定官方 scrcpy 4.0，自含 adb 37.0.0；fetch SHA 驗證、bundle 複製、Apache LICENSE、adb NOTICE 及靜態依賴授權全部完成。每個 Mach-O arm64／strict 簽章／otool 系統依賴驗證通過。 |
-| 新 icon | 部分 | 可換檔流程完成；強尼最終圖未到，先從 1.3.3 icns 匯出最大 1024 PNG。 |
+| 新 icon | 完成（自動化） | 強尼紅色星星版最終圖已同步至 `icon/AppIcon.iconset/`（手繪 10 PNG）及 `icon/AppIcon-1024.png`；`scripts/build.sh` 生成 ICNS，`scripts/verify-icon.py` 通過。GUI 圖示外觀仍需 Andy 實機確認。 |
 | Thatcaster 畫面來源 | 部分 | 本 App 仍輸出一般 macOS 視窗，需 Andy 在 Thatcaster 選取並確認 USB／Android 視窗畫面。 |
 | 建置／測試 | 完成（自動化） | arm64／ad-hoc／deep strict 通過；68 assertions（adb 解析、設定遷移、scrcpy 參數、bundle 路徑及程序生命週期）。GATES:G1–G5 已有成功執行證據。GUI／USB 仍需 Andy。 |
 | 11:00 後 Release | 未做（時間未到） | `scripts/release.sh [--dmg]` 已備妥，11:00 前明確拒絕且不修改版本。Info.plist 仍 1.3.3/7；11:00 後會設為 1.4.0/8，build＋test、ZIP 解壓簽章驗證、SHA 自動寫回本檔。 |
@@ -27,6 +27,13 @@
 - Xcode 27 的 `@State` 改用同一 property wrapper 的別名 `@ViewState`，避免巨集 plugin 在 Codex sandbox 的 nested sandbox 失敗；未停用／繞過 sandbox。
 - 這台環境 `iconutil -c icns` 對原 icns 匯出的各尺寸也回 Invalid Iconset。流程仍優先用 iconutil，失敗才直接封裝經驗證的 PNG ICNS chunks。`iconutil -c iconset` 解碼備援輸出成功，最大尺寸確為 1024×1024。
 - 秘密掃描：沒有（commit 前執行，僅記有／沒有）。
+
+## 2026-10-11 最終 icon 同步
+
+- 來源：`_grok-logs/tm-icon-final/` 紅色星星版；10 張手繪 iconset PNG 與 1024 PNG 已複製至 repo，16／32 PNG `cmp` 相同。
+- `scripts/build.sh`、`scripts/test.sh`、`python3 scripts/verify-icon.py`、`codesign --verify --deep --strict build/ThatMirroring.app`、`plutil -lint Info.plist` 全部成功；68 assertions、3 release guards 通過。
+- 系統 `iconutil` 對輸入回報 Invalid Iconset；`scripts/build.sh` 的既有 PNG ICNS 備援成功產生圖示，`ICON VERIFIED` 通過。未以 GUI 開啟 App 或預覽 icon。
+- 秘密掃描：沒有。
 
 ## scrcpy 打包決策
 
@@ -60,8 +67,7 @@ App 只取 bundle 的完整 scrcpy／adb／server 工具組；缺檔才退回 `/
 
 ## 最終 icon 換檔
 
-**最終 icon：把 1024×1024 PNG 覆蓋 icon/AppIcon-1024.png，跑 scripts/build.sh。**
-如 `icon/AppIcon.iconset/` 有手工各尺寸檔，直接優先使用；要回 PNG 流程，移走該目錄。
+最終 icon 已同步。後續若需替換：把 1024×1024 PNG 覆蓋 `icon/AppIcon-1024.png`，跑 `scripts/build.sh`。目前手繪各尺寸 `icon/AppIcon.iconset/` 優先使用；更新時同步替換整個 iconset，勿重縮放／重編碼其中 PNG。
 
 ## 需要 Andy 實機
 
@@ -78,7 +84,7 @@ App 只取 bundle 的完整 scrcpy／adb／server 工具組；缺檔才退回 `/
 
 ## 下一步
 
-1. 開發與最後整合修正已完成，透過 helper commit＋push；既有 draft PR #4 更新為待實機／11:00 封版（不另開）。
+1. 最終 icon 與本進度更新完成；build／test／秘密掃描通過後，透過 helper 獨立 commit＋push，沿用 draft PR #4。
 2. 本機實際時間仍早於 11:00；不要提前變更 Info.plist／宣稱 Release 已完成。已備妥不使用模型的本機定時封版工作，等待期間不消耗共享模型額度。
 3. 若定時工作失敗／手動續跑：11:00 後先讀本檔、`AI_MEMORY.md`、`git log --oneline origin/main..HEAD`、`git status`。若最終 icon 已到，先依換檔步驟；code freeze 後只修阻擋 build／test 的問題。
 4. 跑 `scripts/release.sh`（ZIP；若需要 DMG 用 `scripts/release.sh --dmg`），更新本表 Release 狀態與 G8 實測證據、SHA、下一步；秘密掃描只記有／沒有，再用 `.codex-git-request` commit＋push。helper 結果成功後更新 PR #4。11:30 前完成，不發 release、不打 tag。
