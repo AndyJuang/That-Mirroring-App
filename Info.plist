@@ -21,12 +21,10 @@
 	<key>LSMinimumSystemVersion</key>
 	<string>14.0</string>
 	<key>NSCameraUsageDescription</key>
-	<string>This app requires camera access to capture your iPhone screen.</string>
+	<string>That Mirroring 需要相機權限來即時顯示 USB 裝置或擷取卡畫面。</string>
 	<key>NSHighResolutionCapable</key>
 	<true/>
 	<key>NSMicrophoneUsageDescription</key>
-	<string>This app requires microphone access to capture your iPhone audio.</string>
-	<key>NSScreenCaptureUsageDescription</key>
-	<string>This app requires screen recording permission to create GIFs from its own window.</string>
+	<string>That Mirroring 需要麥克風權限來播放裝置聲音。</string>
 </dict>
 </plist>
