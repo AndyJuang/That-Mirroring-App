@@ -9,7 +9,7 @@
 - Icon：1024 PNG 覆蓋 `icon/AppIcon-1024.png` 後 build；手工 `icon/AppIcon.iconset/` 優先。目前是佔位圖。sips／iconutil 優先，iconutil 無法編碼時用標準 PNG ICNS 封裝備援；Apple 解碼器已驗證各尺寸。
 - Draft PR 唯一一個： https://github.com/AndyJuang/That-Mirroring-App/pull/4 （Refs #3）。不 merge、不 ready、不 tag、不 GitHub Release、不關 issue。
 - git 寫入僅 `.codex-git-request` helper；commit 會自動 push 此分支。commit 前 build＋test、秘密掃描（只記有／沒有），寫 request 後等 30 秒並確認 `.codex-git-result` 成功。
-- 2026-10-11 10:30 後不開大項、11:00 freeze，11:30 前封装與 push。實際開發開始 01:09，現仍早於 freeze；版本暫留 1.3.3/7。11:00 後跑 `scripts/release.sh [--dmg]` 才設 1.4.0/8、封裝 ZIP／可選 DMG、驗證與記錄 SHA。
+- 2026-10-11 10:30 後不開大項、11:00 freeze，11:30 前封装與 push。實際開發開始 01:09，已於 freeze 後封版 1.4.0/8。重建封裝用 `scripts/release.sh [--dmg]` 才設 1.4.0/8、封裝 ZIP／可選 DMG、驗證與記錄 SHA。
 - GUI 煙霧在 sandbox 的 AppKit `_RegisterApplication` 中止，沒有通過畫面驗收；Apple／Android USB、權限、控制、聲音、視窗外觀與 Thatcaster 畫面來源要由 Andy 實機。最終 icon 等強尼。
 - 禁止操作主 checkout `ThatMirroring`、/Applications 已安裝 App、Pixel Cast、~/bin/pixel-cast（後兩者只讀參考），禁止 grok／pkill／killall／破壞性 git。
 - 續跑先讀 PROGRESS、本檔、`git log --oneline origin/main..HEAD`、`git status`；已通過且輸入沒變的檢查可沿用，不要重做已推送內容。

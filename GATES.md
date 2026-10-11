@@ -4,7 +4,7 @@ Scope: Remove recording, preserve Apple mirroring, bundle Android control, prepa
 - [x] G1: arm64 app and all nested Mach-O files pass strict ad-hoc signature verification
   CHECK: scripts/build.sh
   EXPECT: BUILD VERIFIED
-  EVIDENCE: exit=0; shell=/bin/sh; cwd=/Users/zhuangzheyun/claudeai知識庫/VIBE_開發專案/ThatMirror-wt-dev; path=66640ee3f59c/40 entries; EXPECT=matched; output-sha256=e3d7e2b2605a4edc7078e25ba12aa2533b158fe9a908bc66c39b803d92311e08; output-bytes=707
+  EVIDENCE: exit=0; shell=/bin/sh; cwd=/Users/zhuangzheyun/claudeai知識庫/VIBE_開發專案/ThatMirror-wt-dev; path=66640ee3f59c/40 entries; EXPECT=matched; output-sha256=552e079c341102a666bb58add69504ad6f262f976eb2abf29f8d29b6c2f50c1f; output-bytes=705
 
 - [x] G2: settings migration, adb parsing, arguments, and tool paths handle normal and invalid inputs
   CHECK: scripts/test.sh
@@ -24,10 +24,10 @@ Scope: Remove recording, preserve Apple mirroring, bundle Android control, prepa
 - [x] G5: generated icon contains all macOS sizes, replaceable with one 1024 PNG
   CHECK: python3 scripts/verify-icon.py
   EXPECT: ICON VERIFIED
-  EVIDENCE: exit=0 after final red-star icon sync; all 10 hand-drawn PNG sizes present, 16/32 PNGs byte-identical to source; build generated ICNS through PNG fallback after iconutil Invalid Iconset; python3 scripts/verify-icon.py = ICON VERIFIED; no GUI preview.
+  EVIDENCE: exit=0; shell=/bin/sh; cwd=/Users/zhuangzheyun/claudeai知識庫/VIBE_開發專案/ThatMirror-wt-dev; path=66640ee3f59c/40 entries; EXPECT=matched; output-sha256=0af2ca8298d1cb0c67bfaac81fbbfc413ae6e2f09d171bcbe634b9b5fac9cf22; output-bytes=14
 - [ ] G6: Android USB control, native window fullscreen/topmost and closure work on a physical device
   EVIDENCE: pending; requires Andy hardware acceptance
 - [ ] G7: iPhone/iPad/capture card display, audio, zoom, spotlight and middle-button drag work on physical devices
   EVIDENCE: pending; requires Andy hardware acceptance
-- [ ] G8: final 1.4.0 build 8 ZIP and optional DMG are produced after authorized freeze with hashes recorded
-  EVIDENCE: pending; 11:00 freeze not reached
+- [x] G8: final 1.4.0 build 8 ZIP and optional DMG are produced after authorized freeze with hashes recorded
+  EVIDENCE: 2026-10-11T11:00:07.591347+08:00; version=1.4.0; build=8; ZIP round-trip strict verified; zip-sha256=b7512af459a52dc1993ecd8023bebef8a1421708cc1a7d035c9c523fb763fc53; DMG optional not requested
