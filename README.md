@@ -6,7 +6,7 @@
 
 ## English
 
-A native, lightweight macOS application built with Swift and SwiftUI that allows you to mirror your iPhone or iPad screen directly to your Mac via USB at near-zero latency. Perfect for presentations, recording, and live streaming.
+A native, lightweight macOS application built with Swift and SwiftUI that allows you to mirror your iPhone, iPad, or Android screen directly to your Mac via USB at near-zero latency. Perfect for presentations and live streaming. That Mirroring only displays live screens; it does not record.
 
 ### ✨ Features
 
@@ -39,29 +39,21 @@ To toggle the click highlight effect:
 
 ### 🛠️ Build from Source
 
-This app is a standalone Swift file designed for rapid compilation without needing Xcode.
+This app compiles Swift source files directly without an Xcode project.
 
 **Requirements:**
 - macOS 14.0+
 - Swift Compiler (`swiftc`) installed (usually via Xcode Command Line Tools)
 
-**Compilation Command:**
+**Compilation Command (arm64, macOS 14+):**
 
 ```bash
-# 1. Create the app bundle structure
-mkdir -p ThatMirroring.app/Contents/MacOS
-mkdir -p ThatMirroring.app/Contents/Resources
-
-# 2. Compile the app package
-swiftc MirrorApp.swift -parse-as-library -o ThatMirroring.app/Contents/MacOS/ThatMirroring
-
-# 3. Copy resources
-cp Info.plist ThatMirroring.app/Contents/
-cp AppIcon.icns ThatMirroring.app/Contents/Resources/
-
-# 4. Re-sign the app so macOS allows it to access cameras/hardware
-codesign --sign - --force --deep ThatMirroring.app
+scripts/build.sh
+scripts/test.sh
 ```
+
+The script compiles with `swiftc -O`, regenerates the icon, and ad-hoc signs
+`build/ThatMirroring.app`. No Xcode project or developer signing certificate is needed. The first build downloads the pinned official scrcpy 4.0 arm64 archive into ignored `vendor/`, checks SHA-256, and packages its self-contained scrcpy/server/adb with complete license notices. Subsequent builds use the verified cache.
 
 ### 💡 How it Works (Under the Hood)
 - By default, macOS does not treat USB-connected iOS devices as standard webcams.
@@ -72,7 +64,7 @@ codesign --sign - --force --deep ThatMirroring.app
 
 ## 繁體中文
 
-這是一款使用原生 Swift 與 SwiftUI 打造的輕量級 macOS 應用程式，它能讓你透過 USB 線以「接近零延遲」的速度，將 iPhone 或 iPad 的螢幕直接投射到你的 Mac 畫面上。非常適合用於教學簡報、螢幕錄影或是直播實況。
+這是一款使用原生 Swift 與 SwiftUI 打造的輕量級 macOS 應用程式，它能讓你透過 USB 線以「接近零延遲」的速度，將 iPhone 或 iPad 的螢幕直接投射到你的 Mac 畫面上。適合用於教學簡報及直播實況。That Mirroring 只顯示即時畫面，不提供錄製功能。
 
 ### ✨ 核心功能
 
@@ -102,24 +94,71 @@ codesign --sign - --force --deep ThatMirroring.app
 
 ### 🛠️ 如何從原始碼編譯打包
 
-本專案只有一支 SwiftUI 程式碼，不依賴龐大的 Xcode 專案即可獨立編譯。需要 macOS 14.0 以上，並安裝 Xcode（或 Xcode 指令列工具）後執行：
+本專案以 SwiftUI 與少量可測試的純邏輯檔案組成，不需要 Xcode 專案。
+需要 macOS 14.0 以上、arm64 Mac、Xcode 指令列工具：
 
 ```bash
-# 1. 建立 App Bundle 資料夾結構
-mkdir -p ThatMirroring.app/Contents/MacOS
-mkdir -p ThatMirroring.app/Contents/Resources
-
-# 2. 編譯二進位執行檔到 bundle 中
-swiftc MirrorApp.swift -parse-as-library -o ThatMirroring.app/Contents/MacOS/ThatMirroring
-
-# 3. 複製配置檔與圖示到 Bundle 中
-cp Info.plist ThatMirroring.app/Contents/
-cp AppIcon.icns ThatMirroring.app/Contents/Resources/
-
-# 4. 重新給予本機簽名（非常重要，不簽名 macOS 不會放行其讀取攝影機）
-codesign --sign - --force --deep ThatMirroring.app
+scripts/build.sh
+scripts/test.sh
 ```
+
+輸出：`build/ThatMirroring.app`。每次建置重新產生圖示、以 `swiftc -O` 編譯，
+並對內含 Mach-O 與 App 做 ad-hoc 簽章及嚴格驗證。
+
+最終 icon：把 1024×1024 PNG 覆蓋 `icon/AppIcon-1024.png`，跑 `scripts/build.sh`。
+如有手工製作的 `icon/AppIcon.iconset/`，則優先使用該目錄各尺寸圖檔。
+`sips` 產生各尺寸，再用 `iconutil` 編碼；若系統編碼器不可用，會使用已驗證尺寸的
+PNG-backed ICNS 封裝備援。目前使用強尼提供的紅色星星版手繪 iconset；更換最終圖時覆蓋
+`icon/AppIcon-1024.png`，若有手工尺寸圖則同步更新 `icon/AppIcon.iconset/`。
 
 ### 💡 原理解析
 基於蘋果對於隱私的限制，macOS 內建並不把透過 USB 連接的手機視為普通的網路攝影機（Webcam）。
 這支 App 在背後利用了極底層的 `CoreMediaIO` API 強制啟用 `kCMIOHardwarePropertyAllowScreenCaptureDevices` 硬體標記參數。將隱藏在底層的 USB 螢幕視窗釋放後，我們才得以用非常標準的 `AVCaptureDevice` 把 iOS 極高速的無損視訊串流拉出來播放！
+
+## Android USB mirroring / Android USB 鏡像
+
+Android uses scrcpy's mouse/keyboard control in its own That Mirroring window.
+Select an **Android** device from **Device**; **Android：連線步驟／視窗選項**
+shows authorization state, the four setup steps, refresh, and launch options.
+
+1. 用可傳輸資料的 USB 線接上 Android 與 Mac。
+2. 設定 > 關於手機 > 連點「組建編號」7 次，開啟開發人員選項。
+3. 設定 > 系統 > 開發人員選項 > 開啟「USB 偵錯」。
+4. 解鎖手機，允許 USB 偵錯，勾選「一律允許使用這台電腦」。
+
+選單與 App 內清單會標示「尚未授權」「離線」等狀態。選擇已授權裝置後，
+Mac 滑鼠／鍵盤由 scrcpy 直接操作 Android。iPhone／iPad 維持即時顯示，
+滑鼠只提供既有簡報特效、縮放及視窗拖曳。
+
+Android 視窗沿用黑底、隱藏標題列與 Mac 視窗控制鈕；可設定置頂、以全螢幕開啟、
+播放裝置聲音（下一次連線套用）。F11 或 Option＋F 在鏡像視窗切換全螢幕。
+關閉鏡像視窗、關閉 That Mirroring 主視窗、停止鏡像或離開 App 都會結束該
+scrcpy 程序；主程序意外退出時，視窗樣式模組也會結束鏡像。共用 adb server
+不會被停止。Android 聲音預設關閉，支援情形依 Android 版本與裝置而定。
+
+### Bundled tools and licenses / 打包與授權
+
+`scripts/fetch-scrcpy.sh` 固定下載 [官方 scrcpy 4.0 macOS aarch64 套件](https://github.com/Genymobile/scrcpy/releases/tag/v4.0)，
+SHA-256：`f5167fe047fe4a2ae2c2ea8634c7145a4d64d0b6005f24bb45639a965b8c60d4`。
+內含 scrcpy 4.0、同版本 scrcpy-server、adb 37.0.0（含 arm64）。
+不需要 Homebrew；build 會檢查所有非系統動態依賴與 Mach-O 簽章。
+`scripts/test.sh` 不需要手機、權限或 adb server。
+
+App 優先使用 `Contents/Resources/scrcpy/` 完整工具組。只有 bundle 缺檔時，
+才使用 `/opt/homebrew/bin/scrcpy`、`/opt/homebrew/bin/adb` 與
+`/opt/homebrew/share/scrcpy/scrcpy-server` 的完整備援組，並在 App 內提示。
+建議重新建置或重新下載完整 App，讓版本保持一致。
+
+scrcpy 為 Apache-2.0；App 內附 `Contents/Resources/scrcpy/LICENSE`。
+adb 屬 Android SDK platform-tools，完整多元件授權文字附於
+`Contents/Resources/scrcpy/licenses/adb/NOTICE.txt`，來自 Google 官方
+platform-tools 37.0.0 ZIP。亦附 FFmpeg、SDL、dav1d、libusb、zlib 授權及
+[第三方聲明與原始碼來源](licenses/THIRD-PARTY-NOTICES.md)。下載二進位全部在忽略的
+`vendor/`；git 只包含取得與驗證腳本、授權和我們的原始碼。
+
+### Thatcaster 畫面來源
+
+在 Thatcaster 的視窗來源選擇 That Mirroring（Apple 擷取視窗）或
+「That Mirroring — Android · 裝置型號」（scrcpy 視窗）。Android 的控制繼續在
+鏡像視窗操作；來源擷取與聲音配置由 Thatcaster 管理。跨 App 實機驗收見
+[1.4 開發進度](docs/PROGRESS_1.4.md)。

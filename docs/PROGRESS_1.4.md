@@ -1,0 +1,105 @@
+# That Mirroring 1.4 開發進度
+
+更新：2026-10-11 11:00 台北。分支 `feat/that-mirroring-1.4`，基線 `df9f42d`（1.3.3）。
+只在 ThatMirror-wt-dev 工作；未操作主 checkout、已安裝 App、Pixel Cast 或 grok。
+
+## Issue #3 驗收對照
+
+| 項目 | 狀態 | 驗收／證據 |
+| --- | --- | --- |
+| That Mirroring 改名 | 完成 | 顯示名稱既有正確；App 型別與 queue 已改名。保留 `com.example.iPhoneMirror` 作為既有設定／權限識別，不作 App 名稱；裝置說明中的 iPhone/iPad 是產品名稱。 |
+| 移除錄製 | 完成 | Record 選單、錄製倒數、GifRecorder、ScreenCaptureKit、GIF/VideoToolbox imports 及 NSScreenCaptureUsageDescription 已移除。基線沒有 AVAssetWriter。 |
+| 舊錄製設定 | 完成 | 啟動時移除已知錄製設定；未知舊 key 永不讀取。68 項 assertions 包含格式錯誤、重複遷移及保留裝置／音訊／特效／裁切設定。 |
+| iPhone/iPad／擷取卡 | 部分（實機 DEFERRED） | preview、crop、音訊分析、縮放／聚光燈／中鍵拖曳實作與基線逐段一致；USB／權限／聲音：**DEFERRED: needs real session — 打包後由 Grok CLI／Andy 實機驗證**。 |
+| Android UX／控制 | 部分（實機 DEFERRED） | Device 選單與 App 內中文清單／四點提示完成；狀態、指定 serial、全螢幕／置頂／聲音選項、關閉／Quit 的 owned Process 結束完成。硬體操作：**DEFERRED: needs real session — 打包後由 Grok CLI／Andy 實機驗證**。 |
+| scrcpy/adb 打包與授權 | 完成 | 固定官方 scrcpy 4.0，自含 adb 37.0.0；fetch SHA 驗證、bundle 複製、Apache LICENSE、adb NOTICE 及靜態依賴授權全部完成。每個 Mach-O arm64／strict 簽章／otool 系統依賴驗證通過。 |
+| 新 icon | 完成（自動化） | 強尼紅色星星版最終圖已同步至 `icon/AppIcon.iconset/`（手繪 10 PNG）及 `icon/AppIcon-1024.png`；`scripts/build.sh` 生成 ICNS，`scripts/verify-icon.py` 通過。GUI 圖示外觀仍需 Andy 實機確認。 |
+| Thatcaster 畫面來源 | 部分（實機 DEFERRED） | 本 App 仍輸出一般 macOS 視窗；Thatcaster 選取及 USB／Android 視窗畫面：**DEFERRED: needs real session — 打包後由 Grok CLI／Andy 實機驗證**。 |
+| 建置／測試 | 完成（自動化） | arm64／ad-hoc／deep strict 通過；68 assertions（adb 解析、設定遷移、scrcpy 參數、bundle 路徑及程序生命週期）。GATES:G1–G5 已有成功執行證據。GUI／USB 仍需 Andy。 |
+| 11:00 後 Release | 完成 | 1.4.0/8；ZIP 解壓 strict 簽章通過，SHA 與位置見封裝結果。未製作可選 DMG。 |
+
+## 修改檔案／本輪驗證
+
+- `MirrorApp.swift`、`MirrorLogic.swift`、`Info.plist`：移除錄製、啟動遷移；保留 Apple 擷取核心。
+- `scripts/build.sh`／`test.sh`／`make-icon.sh`／`pack-icon.py`／`audit-source.py`／`check-secrets.py`、`tests/main.swift`、`icon/AppIcon-1024.png`、`AppIcon.icns`、README、.gitignore、GATES。
+- `scripts/build.sh`：成功，`codesign --verify --deep --strict` 成功，arm64 成功；輸出 `build/ThatMirroring.app`。
+- `scripts/test.sh`：68 assertions 成功（含 SIGTERM 無反應時僅對自己子程序 SIGKILL、adb 逾時與兩個超過 pipe 容量的輸出串流）；`scripts/audit-source.py`：成功，包含禁用符號正控制與基線比對。
+- Xcode 27 的 `@State` 改用同一 property wrapper 的別名 `@ViewState`，避免巨集 plugin 在 Codex sandbox 的 nested sandbox 失敗；未停用／繞過 sandbox。
+- 這台環境 `iconutil -c icns` 對原 icns 匯出的各尺寸也回 Invalid Iconset。流程仍優先用 iconutil，失敗才直接封裝經驗證的 PNG ICNS chunks。`iconutil -c iconset` 解碼備援輸出成功，最大尺寸確為 1024×1024。
+- 秘密掃描：沒有（commit 前執行，僅記有／沒有）。
+
+## 2026-10-11 最終 icon 同步
+
+- 來源：`_grok-logs/tm-icon-final/` 紅色星星版；10 張手繪 iconset PNG 與 1024 PNG 已複製至 repo，16／32 PNG `cmp` 相同。
+- `scripts/build.sh`、`scripts/test.sh`、`python3 scripts/verify-icon.py`、`codesign --verify --deep --strict build/ThatMirroring.app`、`plutil -lint Info.plist` 全部成功；68 assertions、3 release guards 通過。
+- 系統 `iconutil` 對輸入回報 Invalid Iconset；`scripts/build.sh` 的既有 PNG ICNS 備援成功產生圖示，`ICON VERIFIED` 通過。未以 GUI 開啟 App 或預覽 icon。
+- 秘密掃描：沒有。
+
+## scrcpy 打包決策
+
+固定官方 [v4.0 macOS aarch64 release](https://github.com/Genymobile/scrcpy/releases/tag/v4.0)，沿用機器既有主版本，未升級／brew install。
+下載：`vendor/scrcpy-macos-aarch64-v4.0.tar.gz`。
+SHA-256：`f5167fe047fe4a2ae2c2ea8634c7145a4d64d0b6005f24bb45639a965b8c60d4`。
+含 adb 37.0.0（universal、含 arm64）。只讀取 Homebrew 版本作參考；不使用其 dylib。
+Android SDK platform-tools 37.0.0 ZIP（官方 Google）：`094a1395683c509fd4d48667da0d8b5ef4d42b2abfcd29f2e8149e2f989357c7`，供提取 adb 原始授權聲明。
+`vendor/` 已忽略；`scripts/fetch-scrcpy.sh` 每次核對 archive SHA，再重新解壓，避免使用改動後的快取二進位。
+套件位置：`build/ThatMirroring.app/Contents/Resources/scrcpy/`。
+App 只取 bundle 的完整 scrcpy／adb／server 工具組；缺檔才退回 `/opt/homebrew/bin`＋`/opt/homebrew/share/scrcpy/scrcpy-server`，App 內明示備援。實際 build 未用 Homebrew，未需 install_name_tool。
+授權：`LICENSE`（Apache-2.0）、`THIRD-PARTY-NOTICES.md`、`licenses/adb/NOTICE.txt`（Google ZIP 內完整多元件授權），及 FFmpeg LGPL2.1、SDL/zlib、dav1d BSD、libusb LGPL。完整來源與重建路徑記於聲明；未將上游 static code 接入本 App。
+另有本專案 `native/ScrcpyWindow.m` 編出的獨立 ad-hoc `ThatMirroringWindow.dylib`，只在自己啟動的 scrcpy 注入，保持 SDL 控制、隱藏標題列／深色／交通燈；監測 host 結束以防殘留視窗。dyld 載入檢查通過，硬體視窗外觀需實測。
+
+## 2026-10-11 第二步結果
+
+- 已推送：`fb96889`（移除錄製與基礎建置）、`e13990c`（Android／授權與封版腳本）、`8dc143d`（切換時暫停 Apple 與交接）；draft PR：<https://github.com/AndyJuang/That-Mirroring-App/pull/4>（Refs #3）。
+- 新增 `AndroidManager.swift`、`native/ScrcpyWindow.m`、`scripts/fetch-scrcpy.sh`、bundle／icon 驗證腳本、第三方 `licenses/`；擴充 `MirrorLogic.swift`、測試、build、README。
+- 最新 App 執行檔 SHA-256：`0e133510c64182dab4cf1b1796436048f05b7c358370c7342d713f3aeb4b9e7b`（開發版本，非 Release ZIP）。
+- 歷史 GUI 煙霧與 AppKit 控制實驗不算 GUI 驗收；遵守 `_grok-logs/NO-GUI-LAUNCH-NOTE.md`，不再啟動 App、瀏覽器或探針。
+- GUI／硬體驗收：**DEFERRED: needs real session — 打包後由 Grok CLI／Andy 實機驗證**；不算自動化失敗，也不擋封裝提交。
+
+## 最後整合修正與交接
+
+- Android 面板顯示時暫停 Apple session，返回 Apple 畫面時以原 setupSession 恢復，避免隱藏攝影機占用／聲音混播；未更改 Apple 擷取／裁切／zoom／spotlight／audio monitor 的原實作。
+- 修正後 build／68 assertions／基線比對均通過，strict 簽章與 bundle 驗證通過；GUI／USB 切換仍需 Andy 實機。
+- 新增專案 `AI_MEMORY.md`，供 11:00 後續跑。中樞 agent-worklog 未有此任務索引，且位於 sandbox 可寫範圍外；交接保留在此 worktree，未寫入中樞或無關任務。
+- `scripts/release.sh` 的提前執行負測試通過：明確拒絕、Info.plist 原樣、無 1.4.0 ZIP。
+
+## 最終 icon 換檔
+
+最終紅色星星版 icon 已同步。後續若要替換：把 1024×1024 PNG 覆蓋 `icon/AppIcon-1024.png`，跑 `scripts/build.sh`；若提供手繪各尺寸，將 `icon/AppIcon.iconset/` 一併替換，build 優先使用各尺寸圖，勿重縮放／重編碼其中 PNG。
+
+## 需要 Andy 實機
+
+- 接 iPhone/iPad，授相機權限、信任 Mac；測直／橫向、拔插、裁切、縮放、spotlight、中鍵拖視窗。
+- 擷取卡及 USB 裝置聲音開關、麥克風權限、壞訊號提示與恢復。
+- Android 未接／USB 偵錯未開／未授權提示、授權後滑鼠／鍵盤、全螢幕、置頂、關閉時結束 scrcpy。
+- 在 Thatcaster 桌面版選取 Apple／Android 視窗當畫面來源；iOS Recorder 的測試屬另一線。
+- 強尼紅色星星版 icon 已同步；圖示外觀仍由 Andy 在真實登入工作階段確認。
+
+## 待 Andy 確認
+
+- Bundle identifier 已保留既有值，避免設定與權限重置。
+
+## 下一步
+
+- Andy／Grok CLI 在真實登入工作階段驗收 Apple／Android／權限／聲音／Thatcaster 畫面來源與 icon 外觀；其他工作已完成。不 merge、不 ready、不 tag、不發 GitHub Release。
+- 若實機發現缺陷，只修阻擋驗收的問題並跑受影響檢查。
+
+## 11:00 定時封版工作
+
+- `scripts/release-at-freeze.py` 在本機等待台北 2026-10-11 11:00，依序完成 `scripts/release.sh`、更新 Release 驗收證據、秘密掃描、helper commit＋push及 draft PR #4 更新。沒有模型/API 呼叫；不做 DMG（可選項）、tag／GitHub Release。
+- 額外 3 個定時封版負控制通過：分支被換、worktree 有未完成修改、另一 git 請求存在時都不執行封裝／覆寫版本／請求 commit。`scripts/test.sh` 一併執行（68 Swift assertions＋3 個封版保護案例）。
+- 啟動前先 commit 此腳本；工作只在分支正確、工作目錄乾淨、沒有既有 git request 時執行。有人新增未 commit 的 final icon／程式修改時，會停下留下交接，不會把他人的未完成修改一起 commit。
+- 等待／完成／失敗與 PID：`build/release-job.json`。執行紀錄：`build/release-job.log`。兩檔都在忽略的 build/。
+- 定時工作沒有取代實機驗收；G6／G7 維持 DEFERRED。實際完成狀態記於 `build/release-job.json`／`build/release-job.log`。
+
+## Release 封裝結果
+
+版本：1.4.0；build：8。ZIP 解壓後 deep strict 簽章驗證通過。
+
+- `build/ThatMirroring_v1.4.0.zip`（/Users/zhuangzheyun/claudeai知識庫/VIBE_開發專案/ThatMirror-wt-dev/build/ThatMirroring_v1.4.0.zip），SHA-256：`b7512af459a52dc1993ecd8023bebef8a1421708cc1a7d035c9c523fb763fc53`。
+
+秘密掃描結果：沒有。commit＋push 與 draft PR #4 更新已完成；未建立 tag／GitHub Release。
+
+## 定時封版執行
+
+本機工作已於 11:00 後完成封裝、commit＋push及 draft PR #4 更新；狀態 `complete`，commit `43b87bc`，遠端 HEAD 相同。PR 保持 OPEN／draft，body 含 `Refs #3`；未 merge、未 tag、未發 GitHub Release。

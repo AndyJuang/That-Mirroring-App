@@ -15,3 +15,13 @@ compile_error.txt
 
 # Release Packages
 *.dmg
+
+# Development tooling and downloaded third-party binaries
+build/
+vendor/
+.codex-git-*
+.unlazy/
+
+# Python tooling cache
+__pycache__/
+*.pyc
