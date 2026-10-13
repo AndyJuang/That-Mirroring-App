@@ -9,7 +9,7 @@
 - 保留既有 bundle identifier `com.example.iPhoneMirror` 以沿用設定與權限；App 對外名稱 That Mirroring。
 - 建置／測試：`scripts/build.sh`（arm64、macOS 14+、swiftc -O、ad-hoc strict）與 `scripts/test.sh`。Xcode 27 在 sandbox 不能執行 SwiftUI State 巨集，所以使用相同 property wrapper 別名 ViewState；不繞過 sandbox。
 - Icon：1024 PNG 覆蓋 `icon/AppIcon-1024.png` 後 build；手工 `icon/AppIcon.iconset/` 優先。目前是佔位圖。sips／iconutil 優先，iconutil 無法編碼時用標準 PNG ICNS 封裝備援；Apple 解碼器已驗證各尺寸。
-- 1.4 draft PR：https://github.com/AndyJuang/That-Mirroring-App/pull/4 （Refs #3）。#6 介面語系在 `feat/i18n`，PR 目標是 `feat/that-mirroring-1.4`。不 merge、不 tag、不發 GitHub Release。
+- 1.4 draft PR：https://github.com/AndyJuang/That-Mirroring-App/pull/4 （Refs #3）。#6 介面語系：https://github.com/AndyJuang/That-Mirroring-App/pull/7 ，分支 `feat/i18n` `e1bb176`，目標 `feat/that-mirroring-1.4`。不 merge、不 tag、不發 GitHub Release。
 - 1.4 封版用 `.codex-git-request`。#6 依任務直接 commit 與 `git push -u origin feat/i18n`。commit 前跑 build、test 與秘密掃描（只記有／沒有）。
 - 2026-10-11 10:30 後不開大項、11:00 freeze，11:30 前封装與 push。實際開發開始 01:09，已於 freeze 後封版 1.4.0/8。重建封裝用 `scripts/release.sh [--dmg]` 才設 1.4.0/8、封裝 ZIP／可選 DMG、驗證與記錄 SHA。
 - GUI 煙霧在 sandbox 的 AppKit `_RegisterApplication` 中止，沒有通過畫面驗收；Apple／Android USB、權限、控制、聲音、視窗外觀與 Thatcaster 畫面來源要由 Andy 實機。最終 icon 等強尼。
