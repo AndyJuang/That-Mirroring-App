@@ -407,7 +407,7 @@ class CaptureManager: NSObject, ObservableObject, AVCaptureVideoDataOutputSample
             sessionGeneration += 1
             audioSignalBroken = false
             hasDevice = false
-            captureQueue.async { if self.session.isRunning { self.session.stopRunning() } }
+            sessionQueue.async { if self.session.isRunning { self.session.stopRunning() } }
             return
         }
         // 第一次開啟「播放裝置聲音」時先要麥克風權限，拿到結果後再重新設定。
