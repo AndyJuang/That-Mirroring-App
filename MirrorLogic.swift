@@ -1,5 +1,44 @@
 import Foundation
 
+// English keys live in Localizable.strings. A missing entry returns the key.
+func localizedText(_ key: String, _ args: CVarArg...) -> String {
+    let format = Bundle.main.localizedString(forKey: key, value: key, table: nil)
+    return String(format: format, locale: Locale.current, arguments: args)
+}
+
+// nil follows the Mac's preferred-language order. Any other code is an override
+// stored in AppleLanguages and applied the next time the app opens.
+struct AppLanguageSetting: Equatable {
+    var code: String?
+    static let traditional = "zh-Hant"
+    static let english = "en"
+
+    static func stored(in defaults: UserDefaults = .standard, domain: String? = Bundle.main.bundleIdentifier) -> AppLanguageSetting {
+        // string(forKey:) also sees the Mac's global language list. Read only
+        // this app's domain so Follow System stays the default.
+        guard let domain, let values = defaults.persistentDomain(forName: domain),
+              let codes = values["AppleLanguages"] as? [Any], let first = codes.first as? String else {
+            return AppLanguageSetting(code: nil)
+        }
+        return AppLanguageSetting(code: first)
+    }
+
+    func save(to defaults: UserDefaults = .standard) {
+        if let code {
+            defaults.set([code], forKey: "AppleLanguages")
+        } else {
+            defaults.removeObject(forKey: "AppleLanguages")
+        }
+    }
+
+    var followsSystem: Bool { code == nil }
+    var isTraditional: Bool { code == "zh-TW" || code?.hasPrefix(Self.traditional) == true }
+    var isEnglish: Bool {
+        guard let code else { return false }
+        return code == Self.english || code.hasPrefix("en-")
+    }
+}
+
 // 1.3.3 had no persisted GIF options. Explicitly discard known older recording
 // preferences; unknown obsolete keys are never read by the display-only app.
 let legacyRecordingKeys = ["IsRecording", "RecordingEnabled", "RecordingFormat", "RecordingQuality",
@@ -18,11 +57,11 @@ struct AndroidDevice: Identifiable, Equatable {
     var isAuthorized: Bool { state == "device" }
     var statusLabel: String {
         switch state {
-        case "device": return isUSB ? "USB 已連線" : "已連線"
-        case "unauthorized": return "尚未授權"
-        case "offline": return "離線，請重新插拔"
-        case "no permissions": return "無法存取 USB"
-        default: return "無法連線"
+        case "device": return isUSB ? localizedText("Connected over USB") : localizedText("Connected")
+        case "unauthorized": return localizedText("Not authorized")
+        case "offline": return localizedText("Offline. Reconnect the cable.")
+        case "no permissions": return localizedText("Can't access USB")
+        default: return localizedText("Can't connect")
         }
     }
 }
@@ -45,7 +84,7 @@ func parseADBDevices(_ output: String) -> [AndroidDevice] {
               state != "no" || detail.dropFirst().first == "permissions", seen.insert(serial).inserted else { return nil }
         let model = detail.first(where: { $0.hasPrefix("model:") }).map { String($0.dropFirst(6)).replacingOccurrences(of: "_", with: " ") }
         return AndroidDevice(serial: serial, state: state == "no" ? "no permissions" : state,
-                             model: model ?? "Android 裝置", isUSB: detail.contains { $0.hasPrefix("usb:") })
+                             model: model ?? "Android", isUSB: detail.contains { $0.hasPrefix("usb:") })
     }
 }
 
@@ -111,10 +150,10 @@ func androidEnvironment(tools: AndroidTools, resources: URL?, inherited: [String
 }
 
 let androidConnectionSteps = """
-1) 手機用「傳輸線」（非純充電線）接上 Mac。
-2) 手機：設定 > 關於手機 > 連點「組建編號」7 次，開啟開發人員選項。
-3) 手機：設定 > 系統 > 開發人員選項 > 開啟「USB 偵錯」。
-4) 手機跳出「允許 USB 偵錯」時，勾選「一律允許使用這台電腦」並按確定。
+1) Use a data cable, not a charge-only cable.
+2) On the phone, open Settings > About phone and tap Build number 7 times.
+3) Open Settings > System > Developer options and turn on USB debugging.
+4) When asked, select Always allow from this computer, then tap Allow.
 """
 
 // Never terminate a process by name or kill the shared adb server.

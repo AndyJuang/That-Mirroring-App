@@ -12,6 +12,7 @@ struct ThatMirroringApp: App {
     @StateObject private var androidManager = AndroidManager()
     @AppStorage("SelectedAnimation") private var selectedAnimation: AnimationType = .cursor
     @AppStorage("AutoCropBlackBars") private var autoCropBlackBars: Bool = true
+    @State private var appLanguage = AppLanguageSetting.stored()
     
     var body: some Scene {
         WindowGroup("That Mirroring") {
@@ -62,24 +63,24 @@ struct ThatMirroringApp: App {
                         androidManager.showSetup = false
                         captureManager.selectedDeviceID = device.uniqueID
                     }) {
-                        Text(device.localizedName + (device.hasMediaType(.muxed) ? " (Screen)" : " (Camera)"))
+                        Text(device.hasMediaType(.muxed) ? localizedText("%@ (Screen)", device.localizedName) : localizedText("%@ (Camera)", device.localizedName))
                         if captureManager.selectedDeviceID == device.uniqueID {
                             Image(systemName: "checkmark")
                         }
                     }
                 }
                 Divider()
-                Button("Android：連線步驟／視窗選項") { androidManager.showSetup = true; androidManager.refresh() }
-                Button("重新整理 Android 裝置") { androidManager.refresh() }
+                Button("Android Setup…") { androidManager.showSetup = true; androidManager.refresh() }
+                Button("Refresh Android Devices") { androidManager.refresh() }
                     .disabled(androidManager.isRefreshing)
                 ForEach(androidManager.devices) { device in
                     Button { androidManager.start(device) } label: {
-                        Text("Android · \(device.model)（\(device.statusLabel)）")
+                        Text(localizedText("Android · %@ (%@)", device.model, device.statusLabel))
                         if androidManager.selectedSerial == device.serial { Image(systemName: "checkmark") }
                     }
                 }
                 if androidManager.selectedSerial != nil {
-                    Button("停止 Android 鏡像") { androidManager.stopMirror() }
+                    Button("Stop Android Mirroring") { androidManager.stopMirror() }
                 }
             }
             
@@ -88,15 +89,40 @@ struct ThatMirroringApp: App {
                     Button(action: {
                         selectedAnimation = type
                     }) {
-                        Text(type.rawValue)
+                        Text(LocalizedStringKey(type.rawValue))
                         if selectedAnimation == type {
                             Image(systemName: "checkmark")
                         }
                     }
                 }
             }
-            
 
+            CommandMenu("Language") {
+                Button(action: {
+                    appLanguage = AppLanguageSetting(code: nil)
+                    appLanguage.save()
+                }) {
+                    Text("Follow System")
+                    if appLanguage.followsSystem { Image(systemName: "checkmark") }
+                }
+                Button(action: {
+                    appLanguage = AppLanguageSetting(code: AppLanguageSetting.traditional)
+                    appLanguage.save()
+                }) {
+                    Text("繁體中文")
+                    if appLanguage.isTraditional { Image(systemName: "checkmark") }
+                }
+                Button(action: {
+                    appLanguage = AppLanguageSetting(code: AppLanguageSetting.english)
+                    appLanguage.save()
+                }) {
+                    Text("English")
+                    if appLanguage.isEnglish { Image(systemName: "checkmark") }
+                }
+                Divider()
+                Button("Reopen the app to apply.") {}
+                    .disabled(true)
+            }
         }
     }
 }
@@ -202,7 +228,7 @@ struct ContentView: View {
                             if showAudioHint {
                                 VStack {
                                     Spacer()
-                                    Text("手機聲音沒有從 HDMI 送出。請在手機的控制中心把聲音輸出切回 HDMI；若仍無效，請重新插拔 Cam Link 與 HDMI 轉接器。")
+                                    Text("No phone audio from HDMI. In Control Center, set the audio output back to HDMI. If that still fails, reconnect the capture card and adapter.")
                                         .font(.system(size: 13, weight: .medium))
                                         .foregroundColor(.white)
                                         .multilineTextAlignment(.leading)
@@ -233,11 +259,11 @@ struct ContentView: View {
                     Image(systemName: "iphone.and.arrow.forward")
                         .font(.system(size: 80))
                         .foregroundColor(.gray)
-                    Text("連接 iPhone／iPad 或 Android")
+                    Text("Connect an iPhone, iPad, or Android")
                         .font(.system(size: 24, weight: .bold))
                         .foregroundColor(.white)
-                    Text("iPhone／iPad：接上 USB、解鎖並信任這台 Mac。\n擷取卡或相機：從 Device 選單選擇裝置。")
-                    Button("Android 連線步驟與裝置清單") { androidManager.showSetup = true; androidManager.refresh() }
+                    Text("For iPhone or iPad, plug in USB, unlock, and trust this Mac.\nFor a capture card or camera, choose it in the Device menu.")
+                    Button("Android Setup and Devices") { androidManager.showSetup = true; androidManager.refresh() }
                         .font(.body)
                         .foregroundColor(.gray)
                         .multilineTextAlignment(.center)
@@ -295,6 +321,9 @@ class CaptureManager: NSObject, ObservableObject, AVCaptureVideoDataOutputSample
     // 每次 setupSession 加 1（main 上存取）；音訊判斷帶著當時的版本，過期的結果直接丟掉，避免重新設定後卡在靜音。
     private var sessionGeneration = 0
     private let captureQueue = DispatchQueue(label: "ThatMirroring.captureQueue", qos: .userInitiated)
+    // 所有 AVCaptureSession 的設定變更與 startRunning/stopRunning 都在這條序列佇列上執行，
+    // 避免主執行緒改 inputs/outputs 時背景的 startRunning 正在列舉而 crash（collection mutated）。
+    private let sessionQueue = DispatchQueue(label: "ThatMirroring.sessionQueue", qos: .userInitiated)
     // 以下狀態只在 captureQueue 上存取。
     private var blackBarDetector = BlackBarDetector()
     private var lastDetectTime: CFTimeInterval = 0
@@ -378,7 +407,7 @@ class CaptureManager: NSObject, ObservableObject, AVCaptureVideoDataOutputSample
             sessionGeneration += 1
             audioSignalBroken = false
             hasDevice = false
-            captureQueue.async { if self.session.isRunning { self.session.stopRunning() } }
+            sessionQueue.async { if self.session.isRunning { self.session.stopRunning() } }
             return
         }
         // 第一次開啟「播放裝置聲音」時先要麥克風權限，拿到結果後再重新設定。
@@ -390,8 +419,23 @@ class CaptureManager: NSObject, ObservableObject, AVCaptureVideoDataOutputSample
         }
         sessionGeneration += 1
         audioSignalBroken = false
-        session.beginConfiguration()
         captureQueue.async { self.needsDetectorReset = true }
+        let devices = self.availableDevices
+        let selectedID = selectedDeviceID
+        let playAudio = playDeviceAudio
+        let generation = sessionGeneration
+        sessionQueue.async {
+            let found = self.configureSession(devices: devices, selectedID: selectedID, playAudio: playAudio, generation: generation)
+            DispatchQueue.main.async {
+                if generation == self.sessionGeneration { self.hasDevice = found }
+            }
+        }
+    }
+
+    // 只在 sessionQueue 上呼叫。
+    private func configureSession(devices: [AVCaptureDevice], selectedID: String?, playAudio: Bool, generation: Int) -> Bool {
+        var hasDevice = false
+        session.beginConfiguration()
         
         for input in session.inputs {
             session.removeInput(input)
@@ -401,9 +445,7 @@ class CaptureManager: NSObject, ObservableObject, AVCaptureVideoDataOutputSample
         }
         
         var selectedDevice: AVCaptureDevice? = nil
-        let devices = self.availableDevices
-        
-        if let id = selectedDeviceID, let device = devices.first(where: { $0.uniqueID == id }) {
+        if let id = selectedID, let device = devices.first(where: { $0.uniqueID == id }) {
             selectedDevice = device
         } else {
             // Auto Select
@@ -424,7 +466,7 @@ class CaptureManager: NSObject, ObservableObject, AVCaptureVideoDataOutputSample
                 // 沒開「播放裝置聲音」時停用 audio port，讓 CoreAudio 不鎖住 iPhone 麥克風，
                 // 其他 app 或錄音執行緒才能自由取用。
                 // 沒有麥克風權限時不開聲音，避免 session 因權限錯誤停止、連畫面一起中斷。
-                let audioOK = playDeviceAudio && AVCaptureDevice.authorizationStatus(for: .audio) == .authorized
+                let audioOK = playAudio && AVCaptureDevice.authorizationStatus(for: .audio) == .authorized
                 var hasAudio = false
                 for port in input.ports where port.mediaType == .audio {
                     port.isEnabled = audioOK
@@ -451,7 +493,6 @@ class CaptureManager: NSObject, ObservableObject, AVCaptureVideoDataOutputSample
                         session.addOutput(audioDataOutput)
                     }
                 }
-                let generation = sessionGeneration
                 audioQueue.async { self.audioMonitor = AudioSignalMonitor(generation: generation) }
                 hasDevice = true
                 print("Added input: \(device.localizedName)")
@@ -476,14 +517,11 @@ class CaptureManager: NSObject, ObservableObject, AVCaptureVideoDataOutputSample
         // startRunning/stopRunning 都放到背景執行，避免快速 disconnect/reconnect 時
         // 主執行緒的呼叫順序與背景任務交叉導致 session 應啟動卻已被停止。
         if hasDevice {
-            if !session.isRunning {
-                captureQueue.async { self.session.startRunning() }
-            }
+            if !session.isRunning { session.startRunning() }
         } else {
-            if session.isRunning {
-                captureQueue.async { self.session.stopRunning() }
-            }
+            if session.isRunning { session.stopRunning() }
         }
+        return hasDevice
     }
     
     func captureOutput(_ output: AVCaptureOutput, didOutput sampleBuffer: CMSampleBuffer, from connection: AVCaptureConnection) {

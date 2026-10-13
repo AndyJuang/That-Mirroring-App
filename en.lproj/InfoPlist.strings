@@ -1,0 +1,2 @@
+"NSCameraUsageDescription" = "That Mirroring needs camera access to show a USB device or capture card.";
+"NSMicrophoneUsageDescription" = "That Mirroring needs microphone access to play device audio.";

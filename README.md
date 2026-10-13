@@ -23,6 +23,7 @@ A native, lightweight macOS application built with Swift and SwiftUI that allows
 - **Capture Card Support (e.g. Elgato Cam Link)**: Black bars around the iPhone picture are detected and cropped automatically (Device → Auto Crop Black Bars). When the phone rotates, the window enlarges to fit the screen and re-centers.
 - **Presentation Zoom & Spotlight**: Scroll (or pinch) to zoom in around the cursor, up to 4×. Hold the middle mouse button and drag to move around while zoomed. Right-click toggles a spotlight that follows the cursor.
 - **Device Audio**: Device → Play Device Audio (⇧⌘S) plays the phone's sound through your Mac (HDMI audio from a capture card, or USB audio from the iPhone). Off by default.
+- **Language**: Choose Language in the menu bar. Follow System is the default and uses your Mac's preferred language order. Traditional Chinese and English are saved immediately and apply after you reopen the app.
 
 ### 🚀 How to Use
 
@@ -80,6 +81,7 @@ The script compiles with `swiftc -O`, regenerates the icon, and ad-hoc signs
 - **支援擷取卡（例如 Elgato Cam Link）**：自動偵測並裁掉 iPhone 畫面四周的黑邊（Device → Auto Crop Black Bars）。手機轉向時，視窗會放大到適合螢幕的大小並移到正中央。
 - **簡報放大與聚光燈**：滾動滑鼠滾輪（或觸控板捏合）以游標為中心放大，最多 4 倍。放大後按住滾輪鍵拖曳可以移動畫面。按右鍵開關跟著游標移動的聚光燈。
 - **播放手機聲音**：Device → Play Device Audio（⇧⌘S）把手機的聲音從 Mac 播出（擷取卡的 HDMI 聲音，或 iPhone 的 USB 聲音）。預設關閉。
+- **語言**：從選單列的「語言」選擇。預設跟隨系統，依 Mac 的偏好語言順序。繁體中文與 English 會立刻儲存，重新開啟後生效。
 
 ### 🚀 如何使用
 

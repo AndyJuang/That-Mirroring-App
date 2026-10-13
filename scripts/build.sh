@@ -1,6 +1,8 @@
 #!/bin/bash
 set -euo pipefail
+unset TMPDIR
 cd "$(dirname "$0")/.."
+python3 scripts/check-strings.py
 app=build/ThatMirroring.app
 mkdir -p "$app/Contents/MacOS" "$app/Contents/Resources" build/ModuleCache
 scripts/make-icon.sh
@@ -8,6 +10,10 @@ scripts/fetch-scrcpy.sh
 xcrun swiftc -O -target arm64-apple-macos14.0 -module-cache-path build/ModuleCache \
     MirrorApp.swift MirrorLogic.swift AndroidManager.swift -parse-as-library -o "$app/Contents/MacOS/ThatMirroring"
 cp Info.plist "$app/Contents/Info.plist"
+for lang in en zh-Hant; do
+    mkdir -p "$app/Contents/Resources/$lang.lproj"
+    cp "$lang.lproj/Localizable.strings" "$lang.lproj/InfoPlist.strings" "$app/Contents/Resources/$lang.lproj/"
+done
 cp AppIcon.icns "$app/Contents/Resources/AppIcon.icns"
 resources="$app/Contents/Resources/scrcpy"
 mkdir -p "$resources"

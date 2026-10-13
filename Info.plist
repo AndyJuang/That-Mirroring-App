@@ -2,8 +2,15 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>en</string>
 	<key>CFBundleDisplayName</key>
 	<string>That Mirroring</string>
+	<key>CFBundleLocalizations</key>
+	<array>
+		<string>en</string>
+		<string>zh-Hant</string>
+	</array>
 	<key>CFBundleExecutable</key>
 	<string>ThatMirroring</string>
 	<key>CFBundleIconFile</key>
@@ -21,10 +28,10 @@
 	<key>LSMinimumSystemVersion</key>
 	<string>14.0</string>
 	<key>NSCameraUsageDescription</key>
-	<string>That Mirroring 需要相機權限來即時顯示 USB 裝置或擷取卡畫面。</string>
+	<string>That Mirroring needs camera access to show a USB device or capture card.</string>
 	<key>NSHighResolutionCapable</key>
 	<true/>
 	<key>NSMicrophoneUsageDescription</key>
-	<string>That Mirroring 需要麥克風權限來播放裝置聲音。</string>
+	<string>That Mirroring needs microphone access to play device audio.</string>
 </dict>
 </plist>
