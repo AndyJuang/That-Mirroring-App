@@ -103,3 +103,15 @@ App 只取 bundle 的完整 scrcpy／adb／server 工具組；缺檔才退回 `/
 ## 定時封版執行
 
 本機工作已於 11:00 後完成封裝、commit＋push及 draft PR #4 更新；狀態 `complete`，commit `43b87bc`，遠端 HEAD 相同。PR 保持 OPEN／draft，body 含 `Refs #3`；未 merge、未 tag、未發 GitHub Release。
+
+## 2026-10-13 UI 語系（#6）
+
+分支 `feat/i18n`，建在 `feat/that-mirroring-1.4`（PR #4）之上。這次只做介面語系。
+
+- 英文是字串 key。`en.lproj` 與 `zh-Hant.lproj` 含 `Localizable.strings` 與權限用的 `InfoPlist.strings`。`scripts/build.sh` 在 `unset TMPDIR` 後編譯，並把兩個 `.lproj` 複製進 App 的 Resources。
+- Info.plist：`CFBundleDevelopmentRegion` 為 `en`，`CFBundleLocalizations` 為 `en`、`zh-Hant`。
+- 選單「語言」：跟隨系統（預設，不寫入覆寫，依 Mac 偏好語言順序）、繁體中文、English。選擇立刻寫入 `AppleLanguages`，選單提示重新開啟後生效。
+- 視窗標題維持 `That Mirroring` 與 `That Mirroring — Android · 型號`。Thatcaster 與關閉鏡像仍用這兩個標題。沒有改輸出畫面的文字。
+- 1.4 已移除 GIF 錄製，畫面上沒有倒數可翻譯，沒有把錄製加回來。
+- 這支 App 沒有轉錄、字幕、MCP 工具描述、AI prompt、canvas 或片頭。那些不在這次範圍。
+- 實機項目（G6、G7，以及權限、聲音、Thatcaster 畫面）仍是 DEFERRED，沒有改完一半。沒有開 App、瀏覽器或 GUI。

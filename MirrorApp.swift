@@ -12,6 +12,7 @@ struct ThatMirroringApp: App {
     @StateObject private var androidManager = AndroidManager()
     @AppStorage("SelectedAnimation") private var selectedAnimation: AnimationType = .cursor
     @AppStorage("AutoCropBlackBars") private var autoCropBlackBars: Bool = true
+    @State private var appLanguage = AppLanguageSetting.stored()
     
     var body: some Scene {
         WindowGroup("That Mirroring") {
@@ -62,24 +63,24 @@ struct ThatMirroringApp: App {
                         androidManager.showSetup = false
                         captureManager.selectedDeviceID = device.uniqueID
                     }) {
-                        Text(device.localizedName + (device.hasMediaType(.muxed) ? " (Screen)" : " (Camera)"))
+                        Text(device.hasMediaType(.muxed) ? localizedText("%@ (Screen)", device.localizedName) : localizedText("%@ (Camera)", device.localizedName))
                         if captureManager.selectedDeviceID == device.uniqueID {
                             Image(systemName: "checkmark")
                         }
                     }
                 }
                 Divider()
-                Button("Android：連線步驟／視窗選項") { androidManager.showSetup = true; androidManager.refresh() }
-                Button("重新整理 Android 裝置") { androidManager.refresh() }
+                Button("Android Setup…") { androidManager.showSetup = true; androidManager.refresh() }
+                Button("Refresh Android Devices") { androidManager.refresh() }
                     .disabled(androidManager.isRefreshing)
                 ForEach(androidManager.devices) { device in
                     Button { androidManager.start(device) } label: {
-                        Text("Android · \(device.model)（\(device.statusLabel)）")
+                        Text(localizedText("Android · %@ (%@)", device.model, device.statusLabel))
                         if androidManager.selectedSerial == device.serial { Image(systemName: "checkmark") }
                     }
                 }
                 if androidManager.selectedSerial != nil {
-                    Button("停止 Android 鏡像") { androidManager.stopMirror() }
+                    Button("Stop Android Mirroring") { androidManager.stopMirror() }
                 }
             }
             
@@ -88,15 +89,40 @@ struct ThatMirroringApp: App {
                     Button(action: {
                         selectedAnimation = type
                     }) {
-                        Text(type.rawValue)
+                        Text(LocalizedStringKey(type.rawValue))
                         if selectedAnimation == type {
                             Image(systemName: "checkmark")
                         }
                     }
                 }
             }
-            
 
+            CommandMenu("Language") {
+                Button(action: {
+                    appLanguage = AppLanguageSetting(code: nil)
+                    appLanguage.save()
+                }) {
+                    Text("Follow System")
+                    if appLanguage.followsSystem { Image(systemName: "checkmark") }
+                }
+                Button(action: {
+                    appLanguage = AppLanguageSetting(code: AppLanguageSetting.traditional)
+                    appLanguage.save()
+                }) {
+                    Text("繁體中文")
+                    if appLanguage.isTraditional { Image(systemName: "checkmark") }
+                }
+                Button(action: {
+                    appLanguage = AppLanguageSetting(code: AppLanguageSetting.english)
+                    appLanguage.save()
+                }) {
+                    Text("English")
+                    if appLanguage.isEnglish { Image(systemName: "checkmark") }
+                }
+                Divider()
+                Button("Reopen the app to apply.") {}
+                    .disabled(true)
+            }
         }
     }
 }
@@ -202,7 +228,7 @@ struct ContentView: View {
                             if showAudioHint {
                                 VStack {
                                     Spacer()
-                                    Text("手機聲音沒有從 HDMI 送出。請在手機的控制中心把聲音輸出切回 HDMI；若仍無效，請重新插拔 Cam Link 與 HDMI 轉接器。")
+                                    Text("No phone audio from HDMI. In Control Center, set the audio output back to HDMI. If that still fails, reconnect the capture card and adapter.")
                                         .font(.system(size: 13, weight: .medium))
                                         .foregroundColor(.white)
                                         .multilineTextAlignment(.leading)
@@ -233,11 +259,11 @@ struct ContentView: View {
                     Image(systemName: "iphone.and.arrow.forward")
                         .font(.system(size: 80))
                         .foregroundColor(.gray)
-                    Text("連接 iPhone／iPad 或 Android")
+                    Text("Connect an iPhone, iPad, or Android")
                         .font(.system(size: 24, weight: .bold))
                         .foregroundColor(.white)
-                    Text("iPhone／iPad：接上 USB、解鎖並信任這台 Mac。\n擷取卡或相機：從 Device 選單選擇裝置。")
-                    Button("Android 連線步驟與裝置清單") { androidManager.showSetup = true; androidManager.refresh() }
+                    Text("For iPhone or iPad, plug in USB, unlock, and trust this Mac.\nFor a capture card or camera, choose it in the Device menu.")
+                    Button("Android Setup and Devices") { androidManager.showSetup = true; androidManager.refresh() }
                         .font(.body)
                         .foregroundColor(.gray)
                         .multilineTextAlignment(.center)

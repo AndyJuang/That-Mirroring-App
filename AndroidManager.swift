@@ -6,7 +6,7 @@ import Darwin
 final class AndroidManager: ObservableObject {
     @Published private(set) var devices: [AndroidDevice] = []
     @Published private(set) var selectedSerial: String?
-    @Published private(set) var status = "正在尋找 Android 裝置…"
+    @Published private(set) var status = localizedText("Looking for Android devices…")
     @Published private(set) var isRefreshing = false
     @Published var showSetup = false
     @Published var options = AndroidWindowOptions()
@@ -32,7 +32,7 @@ final class AndroidManager: ObservableObject {
     func refresh() {
         guard !stopped, !isRefreshing else { return }
         guard let tools = resolveAndroidTools(resources: Bundle.main.resourceURL) else {
-            devices = []; status = "找不到 Android 工具，請重新下載完整 App 或重新執行 scripts/build.sh。"; return
+            devices = []; status = localizedText("Android tools are missing. Download That Mirroring again."); return
         }
         isRefreshing = true
         queue.async { [weak self] in
@@ -48,15 +48,15 @@ final class AndroidManager: ObservableObject {
                     self.isRefreshing = false
                     self.devices = ok ? parseADBDevices(text) : []
                     if self.mirror == nil {
-                        self.status = !ok ? "無法取得 Android 裝置清單，請確認連線後按「重新整理」。" :
-                            self.devices.contains(where: \.isAuthorized) ? "請選擇 Android 裝置開始鏡像。" : "找不到已授權的 USB 裝置，請確認下方四個步驟。"
+                        self.status = !ok ? localizedText("Can't list Android devices. Check the connection, then click Refresh.") :
+                            self.devices.contains(where: \.isAuthorized) ? localizedText("Choose an Android device to start.") : localizedText("No authorized USB device. Check the four steps below.")
                     }
-                    if tools.isFallback { self.status += "（目前使用 /opt/homebrew 備援工具。）" }
+                    if tools.isFallback { self.status = localizedText("%@ (Using backup tools.)", self.status) }
                 }
             } catch {
                 DispatchQueue.main.async {
                     guard let self = self, !self.stopped else { return }
-                    self.isRefreshing = false; self.devices = []; self.status = "無法啟動 adb，請重新下載完整 App。"
+                    self.isRefreshing = false; self.devices = []; self.status = localizedText("Can't start the Android tools. Download That Mirroring again.")
                 }
             }
         }
@@ -65,10 +65,10 @@ final class AndroidManager: ObservableObject {
     func start(_ device: AndroidDevice) {
         showSetup = true
         guard device.isAuthorized else {
-            status = "\(device.model)：\(device.statusLabel)。請依下方步驟操作，再按「重新整理」。"; return
+            status = localizedText("%@: %@. Follow the steps below, then click Refresh.", device.model, device.statusLabel); return
         }
         guard let tools = resolveAndroidTools(resources: Bundle.main.resourceURL) else {
-            status = "找不到 Android 工具，請重新下載完整 App。"; return
+            status = localizedText("Android tools are missing. Download That Mirroring again."); return
         }
         stopMirror()
         let process = Process(), pipe = Pipe()
@@ -91,11 +91,11 @@ final class AndroidManager: ObservableObject {
                 self.mirror = nil; self.outputPipe = nil; self.selectedSerial = nil
                 self.errorLock.lock(); let error = self.lastError; self.errorLock.unlock()
                 if process.terminationStatus == 0 {
-                    self.status = "Android 鏡像已關閉。"
+                    self.status = localizedText("Android mirroring is off.")
                 } else if error.localizedCaseInsensitiveContains("unauthorized") {
-                    self.status = "手機尚未授權 USB 偵錯，請解鎖並允許這台 Mac。"
+                    self.status = localizedText("Allow USB debugging on the phone. Unlock it and allow this Mac.")
                 } else {
-                    self.status = "Android 鏡像已中斷，請確認傳輸線、USB 偵錯與授權後重新連線。"
+                    self.status = localizedText("Android mirroring stopped. Check the cable, USB debugging, and permission, then connect again.")
                 }
                 self.refresh()
             }
@@ -104,11 +104,12 @@ final class AndroidManager: ObservableObject {
             mirror = process; outputPipe = pipe
             try process.run()
             selectedSerial = device.serial
-            status = "\(device.model) 已在 That Mirroring 視窗開啟，可用 Mac 滑鼠與鍵盤操作。" + (tools.isFallback ? "（/opt/homebrew 備援）" : "")
+            status = localizedText("%@ is open in That Mirroring. Use the Mac mouse and keyboard.", device.model)
+            if tools.isFallback { status = localizedText("%@ (Using backup tools.)", status) }
         } catch {
             mirror = nil; outputPipe = nil
             pipe.fileHandleForReading.readabilityHandler = nil
-            status = "無法啟動 Android 鏡像，請重新下載完整 App。"
+            status = localizedText("Can't start Android mirroring. Download That Mirroring again.")
         }
     }
 
@@ -120,7 +121,7 @@ final class AndroidManager: ObservableObject {
         terminateOwnedProcess(process)
         outputPipe?.fileHandleForReading.readabilityHandler = nil
         outputPipe = nil
-        status = "Android 鏡像已關閉。"
+        status = localizedText("Android mirroring is off.")
     }
     func shutdown() {
         stopped = true; refreshTimer?.invalidate(); refreshTimer = nil; stopMirror()
@@ -136,29 +137,29 @@ struct AndroidSetupView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
-                Label("Android USB 鏡像", systemImage: "smartphone").font(.title2.bold())
+                Label("Android over USB", systemImage: "smartphone").font(.title2.bold())
                 Text(manager.status).textSelection(.enabled)
                 ForEach(manager.devices) { device in
                     Button { manager.start(device) } label: {
                         HStack {
-                            Text("Android · \(device.model)")
+                            Text(localizedText("Android · %@", device.model))
                             Spacer()
                             Text(device.statusLabel).foregroundStyle(.secondary)
                         }
                     }
                 }
-                Text(androidConnectionSteps).font(.body).lineSpacing(6).fixedSize(horizontal: false, vertical: true)
+                Text(localizedText(androidConnectionSteps)).font(.body).lineSpacing(6).fixedSize(horizontal: false, vertical: true)
                 HStack {
-                    Button("重新整理") { manager.refresh() }.disabled(manager.isRefreshing)
-                    if manager.selectedSerial != nil { Button("停止 Android 鏡像") { manager.stopMirror() } }
+                    Button("Refresh") { manager.refresh() }.disabled(manager.isRefreshing)
+                    if manager.selectedSerial != nil { Button("Stop Android Mirroring") { manager.stopMirror() } }
                 }
                 Divider()
-                Text("視窗選項（下一次連線套用）").font(.headline)
-                Toggle("視窗置頂", isOn: $manager.options.alwaysOnTop)
-                Toggle("以全螢幕開啟", isOn: $manager.options.fullscreen)
-                Toggle("播放 Android 裝置聲音", isOn: $manager.options.audio)
-                Text("鏡像視窗：F11 或 Option＋F 切換全螢幕；左上關閉鍵結束鏡像。關閉 That Mirroring 主視窗或離開 App 也會停止 Android 鏡像。聲音預設關閉，部分舊版 Android 不支援轉送。").font(.callout).foregroundStyle(.secondary)
-                Button("返回 iPhone／iPad／擷取卡") { manager.stopMirror(); manager.showSetup = false }
+                Text("Window options apply the next time you connect.").font(.headline)
+                Toggle("Keep Window on Top", isOn: $manager.options.alwaysOnTop)
+                Toggle("Open in Full Screen", isOn: $manager.options.fullscreen)
+                Toggle("Play Android Audio", isOn: $manager.options.audio)
+                Text("In the mirror window, press F11 or Option-F for full screen. Closing the window stops mirroring. Quitting That Mirroring also stops it. Audio is off by default. Some older phones cannot send audio.").font(.callout).foregroundStyle(.secondary)
+                Button("Back to iPhone, iPad, or Capture Card") { manager.stopMirror(); manager.showSetup = false }
             }.padding(24)
         }.frame(minWidth: 380, minHeight: 420).preferredColorScheme(.dark)
     }

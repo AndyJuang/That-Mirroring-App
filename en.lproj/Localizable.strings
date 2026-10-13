@@ -1,0 +1,62 @@
+/* That Mirroring UI. The English text is the key. */
+"That Mirroring" = "That Mirroring";
+
+"Device" = "Device";
+"Auto Detect" = "Auto Detect";
+"Auto Crop Black Bars" = "Auto Crop Black Bars";
+"Play Device Audio" = "Play Device Audio";
+"Android Setup…" = "Android Setup…";
+"Refresh Android Devices" = "Refresh Android Devices";
+"Stop Android Mirroring" = "Stop Android Mirroring";
+"%@ (Screen)" = "%@ (Screen)";
+"%@ (Camera)" = "%@ (Camera)";
+"Android · %@ (%@)" = "Android · %@ (%@)";
+"Android · %@" = "Android · %@";
+
+"Highlight" = "Highlight";
+"None (Off)" = "None (Off)";
+"Giant Cursor" = "Giant Cursor";
+"Giant Hand" = "Giant Hand";
+"Giant Circle" = "Giant Circle";
+
+"Language" = "Language";
+"Follow System" = "Follow System";
+"繁體中文" = "繁體中文";
+"English" = "English";
+"Reopen the app to apply." = "Reopen the app to apply.";
+
+"Connect an iPhone, iPad, or Android" = "Connect an iPhone, iPad, or Android";
+"For iPhone or iPad, plug in USB, unlock, and trust this Mac.\nFor a capture card or camera, choose it in the Device menu." = "For iPhone or iPad, plug in USB, unlock, and trust this Mac.\nFor a capture card or camera, choose it in the Device menu.";
+"Android Setup and Devices" = "Android Setup and Devices";
+"No phone audio from HDMI. In Control Center, set the audio output back to HDMI. If that still fails, reconnect the capture card and adapter." = "No phone audio from HDMI. In Control Center, set the audio output back to HDMI. If that still fails, reconnect the capture card and adapter.";
+
+"Android over USB" = "Android over USB";
+"Refresh" = "Refresh";
+"Window options apply the next time you connect." = "Window options apply the next time you connect.";
+"Keep Window on Top" = "Keep Window on Top";
+"Open in Full Screen" = "Open in Full Screen";
+"Play Android Audio" = "Play Android Audio";
+"In the mirror window, press F11 or Option-F for full screen. Closing the window stops mirroring. Quitting That Mirroring also stops it. Audio is off by default. Some older phones cannot send audio." = "In the mirror window, press F11 or Option-F for full screen. Closing the window stops mirroring. Quitting That Mirroring also stops it. Audio is off by default. Some older phones cannot send audio.";
+"Back to iPhone, iPad, or Capture Card" = "Back to iPhone, iPad, or Capture Card";
+
+"Connected over USB" = "Connected over USB";
+"Connected" = "Connected";
+"Not authorized" = "Not authorized";
+"Offline. Reconnect the cable." = "Offline. Reconnect the cable.";
+"Can't access USB" = "Can't access USB";
+"Can't connect" = "Can't connect";
+
+"Looking for Android devices…" = "Looking for Android devices…";
+"Android tools are missing. Download That Mirroring again." = "Android tools are missing. Download That Mirroring again.";
+"Can't list Android devices. Check the connection, then click Refresh." = "Can't list Android devices. Check the connection, then click Refresh.";
+"Choose an Android device to start." = "Choose an Android device to start.";
+"No authorized USB device. Check the four steps below." = "No authorized USB device. Check the four steps below.";
+"%@ (Using backup tools.)" = "%@ (Using backup tools.)";
+"Can't start the Android tools. Download That Mirroring again." = "Can't start the Android tools. Download That Mirroring again.";
+"%@: %@. Follow the steps below, then click Refresh." = "%@: %@. Follow the steps below, then click Refresh.";
+"Android mirroring is off." = "Android mirroring is off.";
+"Allow USB debugging on the phone. Unlock it and allow this Mac." = "Allow USB debugging on the phone. Unlock it and allow this Mac.";
+"Android mirroring stopped. Check the cable, USB debugging, and permission, then connect again." = "Android mirroring stopped. Check the cable, USB debugging, and permission, then connect again.";
+"%@ is open in That Mirroring. Use the Mac mouse and keyboard." = "%@ is open in That Mirroring. Use the Mac mouse and keyboard.";
+"Can't start Android mirroring. Download That Mirroring again." = "Can't start Android mirroring. Download That Mirroring again.";
+"1) Use a data cable, not a charge-only cable.\n2) On the phone, open Settings > About phone and tap Build number 7 times.\n3) Open Settings > System > Developer options and turn on USB debugging.\n4) When asked, select Always allow from this computer, then tap Allow." = "1) Use a data cable, not a charge-only cable.\n2) On the phone, open Settings > About phone and tap Build number 7 times.\n3) Open Settings > System > Developer options and turn on USB debugging.\n4) When asked, select Always allow from this computer, then tap Allow.";

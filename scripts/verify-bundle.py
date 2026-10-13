@@ -4,7 +4,23 @@ app = pathlib.Path('build/ThatMirroring.app')
 root = app / 'Contents/Resources/scrcpy'
 plist = plistlib.loads((app/'Contents/Info.plist').read_bytes())
 assert plist['CFBundleDisplayName'] == 'That Mirroring'
+assert plist['CFBundleDevelopmentRegion'] == 'en'
+assert plist['CFBundleLocalizations'] == ['en', 'zh-Hant']
 assert 'NSScreenCaptureUsageDescription' not in plist
+def load_strings(path):
+    xml = subprocess.check_output(['plutil', '-convert', 'xml1', '-o', '-', str(path)])
+    return plistlib.loads(xml)
+packaged = {}
+for lang in ('en', 'zh-Hant'):
+    folder = app / 'Contents/Resources' / f'{lang}.lproj'
+    for name in ('Localizable.strings', 'InfoPlist.strings'):
+        assert (folder / name).is_file(), f'{lang}.lproj/{name}'
+        packaged[(lang, name)] = load_strings(folder / name)
+assert set(packaged[('en', 'Localizable.strings')]) == set(packaged[('zh-Hant', 'Localizable.strings')])
+assert packaged[('zh-Hant', 'Localizable.strings')]['Language'] == '語言'
+assert packaged[('zh-Hant', 'Localizable.strings')]['%@ (Screen)'] == '%@（畫面）'
+assert packaged[('en', 'Localizable.strings')]['Follow System'] == 'Follow System'
+assert packaged[('zh-Hant', 'InfoPlist.strings')]['NSCameraUsageDescription'] != packaged[('en', 'InfoPlist.strings')]['NSCameraUsageDescription']
 for name in ['scrcpy','adb','scrcpy-server','ThatMirroringWindow.dylib','scrcpy.png','LICENSE','THIRD-PARTY-NOTICES.md']:
     assert (root/name).is_file(), name
 for path in pathlib.Path('licenses').glob('*/*'):
