@@ -60,8 +60,8 @@ def main():
     gates.write_text(text)
     # Version/signature inputs changed: refresh the five automated acceptance records.
     env = os.environ.copy()
-    env['UNLAZY_APPROVAL_DIR'] = '/Users/zhuangzheyun/.cache/thatmirroring-unlazy-approvals'
-    checker = subprocess.run(['node', '/Users/zhuangzheyun/.agents/skills/unlazy/scripts/gate-check.mjs', '--reverify', 'GATES.md'], cwd=ROOT, env=env, text=True, capture_output=True)
+    env['UNLAZY_APPROVAL_DIR'] = os.path.expanduser('~/.cache/thatmirroring-unlazy-approvals')
+    checker = subprocess.run(['node', os.path.expanduser('~/.agents/skills/unlazy/scripts/gate-check.mjs'), '--reverify', 'GATES.md'], cwd=ROOT, env=env, text=True, capture_output=True)
     print(checker.stdout, flush=True)
     for gate in ['G1','G2','G3','G4','G5']:
         if f'PASS GATES:{gate}:' not in checker.stdout: raise RuntimeError(f'{gate} did not verify')

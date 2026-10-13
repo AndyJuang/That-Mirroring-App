@@ -96,7 +96,7 @@ App 只取 bundle 的完整 scrcpy／adb／server 工具組；缺檔才退回 `/
 
 版本：1.4.0；build：8。ZIP 解壓後 deep strict 簽章驗證通過。
 
-- `build/ThatMirroring_v1.4.0.zip`（/Users/zhuangzheyun/claudeai知識庫/VIBE_開發專案/ThatMirror-wt-dev/build/ThatMirroring_v1.4.0.zip），SHA-256：`b7512af459a52dc1993ecd8023bebef8a1421708cc1a7d035c9c523fb763fc53`。
+- `build/ThatMirroring_v1.4.0.zip`（~/claudeai知識庫/VIBE_開發專案/ThatMirror-wt-dev/build/ThatMirroring_v1.4.0.zip），SHA-256：`b7512af459a52dc1993ecd8023bebef8a1421708cc1a7d035c9c523fb763fc53`。
 
 秘密掃描結果：沒有。commit＋push 與 draft PR #4 更新已完成；未建立 tag／GitHub Release。
 
