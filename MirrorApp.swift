@@ -321,6 +321,9 @@ class CaptureManager: NSObject, ObservableObject, AVCaptureVideoDataOutputSample
     // 每次 setupSession 加 1（main 上存取）；音訊判斷帶著當時的版本，過期的結果直接丟掉，避免重新設定後卡在靜音。
     private var sessionGeneration = 0
     private let captureQueue = DispatchQueue(label: "ThatMirroring.captureQueue", qos: .userInitiated)
+    // 所有 AVCaptureSession 的設定變更與 startRunning/stopRunning 都在這條序列佇列上執行，
+    // 避免主執行緒改 inputs/outputs 時背景的 startRunning 正在列舉而 crash（collection mutated）。
+    private let sessionQueue = DispatchQueue(label: "ThatMirroring.sessionQueue", qos: .userInitiated)
     // 以下狀態只在 captureQueue 上存取。
     private var blackBarDetector = BlackBarDetector()
     private var lastDetectTime: CFTimeInterval = 0
@@ -416,8 +419,23 @@ class CaptureManager: NSObject, ObservableObject, AVCaptureVideoDataOutputSample
         }
         sessionGeneration += 1
         audioSignalBroken = false
-        session.beginConfiguration()
         captureQueue.async { self.needsDetectorReset = true }
+        let devices = self.availableDevices
+        let selectedID = selectedDeviceID
+        let playAudio = playDeviceAudio
+        let generation = sessionGeneration
+        sessionQueue.async {
+            let found = self.configureSession(devices: devices, selectedID: selectedID, playAudio: playAudio, generation: generation)
+            DispatchQueue.main.async {
+                if generation == self.sessionGeneration { self.hasDevice = found }
+            }
+        }
+    }
+
+    // 只在 sessionQueue 上呼叫。
+    private func configureSession(devices: [AVCaptureDevice], selectedID: String?, playAudio: Bool, generation: Int) -> Bool {
+        var hasDevice = false
+        session.beginConfiguration()
         
         for input in session.inputs {
             session.removeInput(input)
@@ -427,9 +445,7 @@ class CaptureManager: NSObject, ObservableObject, AVCaptureVideoDataOutputSample
         }
         
         var selectedDevice: AVCaptureDevice? = nil
-        let devices = self.availableDevices
-        
-        if let id = selectedDeviceID, let device = devices.first(where: { $0.uniqueID == id }) {
+        if let id = selectedID, let device = devices.first(where: { $0.uniqueID == id }) {
             selectedDevice = device
         } else {
             // Auto Select
@@ -450,7 +466,7 @@ class CaptureManager: NSObject, ObservableObject, AVCaptureVideoDataOutputSample
                 // 沒開「播放裝置聲音」時停用 audio port，讓 CoreAudio 不鎖住 iPhone 麥克風，
                 // 其他 app 或錄音執行緒才能自由取用。
                 // 沒有麥克風權限時不開聲音，避免 session 因權限錯誤停止、連畫面一起中斷。
-                let audioOK = playDeviceAudio && AVCaptureDevice.authorizationStatus(for: .audio) == .authorized
+                let audioOK = playAudio && AVCaptureDevice.authorizationStatus(for: .audio) == .authorized
                 var hasAudio = false
                 for port in input.ports where port.mediaType == .audio {
                     port.isEnabled = audioOK
@@ -477,7 +493,6 @@ class CaptureManager: NSObject, ObservableObject, AVCaptureVideoDataOutputSample
                         session.addOutput(audioDataOutput)
                     }
                 }
-                let generation = sessionGeneration
                 audioQueue.async { self.audioMonitor = AudioSignalMonitor(generation: generation) }
                 hasDevice = true
                 print("Added input: \(device.localizedName)")
@@ -502,14 +517,11 @@ class CaptureManager: NSObject, ObservableObject, AVCaptureVideoDataOutputSample
         // startRunning/stopRunning 都放到背景執行，避免快速 disconnect/reconnect 時
         // 主執行緒的呼叫順序與背景任務交叉導致 session 應啟動卻已被停止。
         if hasDevice {
-            if !session.isRunning {
-                captureQueue.async { self.session.startRunning() }
-            }
+            if !session.isRunning { session.startRunning() }
         } else {
-            if session.isRunning {
-                captureQueue.async { self.session.stopRunning() }
-            }
+            if session.isRunning { session.stopRunning() }
         }
+        return hasDevice
     }
     
     func captureOutput(_ output: AVCaptureOutput, didOutput sampleBuffer: CMSampleBuffer, from connection: AVCaptureConnection) {
