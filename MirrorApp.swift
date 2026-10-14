@@ -20,6 +20,11 @@ struct ThatMirroringApp: App {
         }
         .windowStyle(HiddenTitleBarWindowStyle())
         .commands {
+            CommandGroup(replacing: .appInfo) {
+                Button("About That Mirroring") {
+                    AboutWindowController.shared.show()
+                }
+            }
             CommandMenu("Device") {
                 Button(action: {
                     androidManager.stopMirror()

@@ -62,3 +62,22 @@
 "%@ is open in That Mirroring. Use the Mac mouse and keyboard." = "%@ is open in That Mirroring. Use the Mac mouse and keyboard.";
 "Can't start Android mirroring. Download That Mirroring again." = "Can't start Android mirroring. Download That Mirroring again.";
 "1) Use a data cable, not a charge-only cable.\n2) On the phone, open Settings > About phone and tap Build number 7 times.\n3) Open Settings > System > Developer options and turn on USB debugging.\n4) When asked, select Always allow from this computer, then tap Allow." = "1) Use a data cable, not a charge-only cable.\n2) On the phone, open Settings > About phone and tap Build number 7 times.\n3) Open Settings > System > Developer options and turn on USB debugging.\n4) When asked, select Always allow from this computer, then tap Allow.";
+
+"About That Mirroring" = "About That Mirroring";
+"Version %@ (%@)" = "Version %@ (%@)";
+"Copy Version Info" = "Copy Version Info";
+"Copied" = "Copied";
+"Mirror your iPhone, iPad or Android screen over USB with near-zero latency — for presentations, streaming and tutorials." = "Mirror your iPhone, iPad or Android screen over USB with near-zero latency — for presentations, streaming and tutorials.";
+"Sister App" = "Sister App";
+"Thatcaster" = "Thatcaster";
+"Thatcaster — multi-camera, multi-screen teaching recorder & editor." = "Thatcaster — multi-camera, multi-screen teaching recorder & editor.";
+"那個數位有限公司 / Aha Digital Co., Ltd." = "那個數位有限公司 / Aha Digital Co., Ltd.";
+"Website" = "Website";
+"Contact us" = "Contact us";
+"Watch “欸那個AJ” on YouTube" = "Watch “欸那個AJ” on YouTube";
+"Open-Source Licenses" = "Open-Source Licenses";
+"Acknowledgments" = "Acknowledgments";
+"© 2026 Aha Digital Co., Ltd. All rights reserved." = "© 2026 Aha Digital Co., Ltd. All rights reserved.";
+"Android mirroring powered by scrcpy (Apache 2.0, Genymobile); also includes adb, FFmpeg (LGPL 2.1), SDL, libusb, dav1d and zlib." = "Android mirroring powered by scrcpy (Apache 2.0, Genymobile); also includes adb, FFmpeg (LGPL 2.1), SDL, libusb, dav1d and zlib.";
+"Close" = "Close";
+"Open-source notices are not in this copy." = "Open-source notices are not in this copy.";

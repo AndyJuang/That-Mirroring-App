@@ -1,7 +1,9 @@
 # That Mirroring — 交接
 
-- 目前工作區是 `ThatMirror-wt-141`，分支 `feat/1.4.1-android-polish`，基底 main（1.4.0／build 8，已含 Android／scrcpy 與介面語系）。這次是 1.4.1／build 9：Android「投影時關閉手機螢幕」與操控提示。實機 DEFERRED 仍在 `docs/PROGRESS_1.4.md`。自動化證據：`GATES.md`。
-- 2026-10-14 1.4.1：選項跟置頂、全螢幕、聲音放在同一區，預設關，只把這一項寫進 `AndroidTurnScreenOff`。下次連線才套用。開啟時才加 `--turn-screen-off`。參數沒有 `--no-control`、`--no-mouse`、`--no-keyboard`。連線畫面提示可用滑鼠與鍵盤操作手機。iPhone／iPad 的 AVCapture 核心沒改。`scripts/test.sh` 94 assertions、3 guards、字串對齊；`scripts/build.sh` BUILD VERIFIED；`audit-source.py` SOURCE VERIFIED；`verify-icon.py` ICON VERIFIED。秘密掃描沒有。沒有開 GUI、沒有安裝、沒有封裝。PR https://github.com/AndyJuang/That-Mirroring-App/pull/8 ，目標 main，內文 Refs #3。不 merge、不 tag、不發 GitHub Release。
+- 目前工作區是 `ThatMirror-wt-about`，分支 `feat/about-page`，基底是已合併 1.4.1 的 main。這一支是自訂關於視窗。沒有開視窗、沒有安裝、沒有封裝。實機 DEFERRED 仍在 `docs/PROGRESS_1.4.md`。
+- 2026-10-14 關於視窗：選單「關於」改開單例 SwiftUI 視窗，不再用標準 About 面板。版本與 build 讀 Bundle 的 `CFBundleShortVersionString`、`CFBundleVersion`，沒有寫死。Thatcaster 的 bundle id 是 `com.andyjuang.ai-teaching-recorder`，已安裝就用 NSWorkspace 開啟，否則開 https://ahadigit.work。授權 sheet 讀 bundle 裡的 `scrcpy/THIRD-PARTY-NOTICES.md` 與 `scrcpy/licenses/`。字串在 `en.lproj` 與 `zh-Hant.lproj`。彩蛋只做 2 秒內點圖示 5 次，呼叫 `CatWinkView.swift` 的 `CatWinkEffect`（參數 `trigger`）。動畫是小縮放佔位，留給 Claude Code 在同分支替換。`scripts/test.sh` 149 assertions、3 guards、字串對齊；`scripts/build.sh` BUILD VERIFIED；`audit-source.py` SOURCE VERIFIED。掃描沒有路徑外洩，信箱只有公司聯絡信箱。沒有開 GUI、沒有安裝、沒有封裝。
+- 1.4.1 已在 main：Android「投影時關閉手機螢幕」與操控提示，版本 1.4.1／build 9。選項預設關，只寫進 `AndroidTurnScreenOff`。開啟時才加 `--turn-screen-off`。沒有關掉滑鼠鍵盤。PR https://github.com/AndyJuang/That-Mirroring-App/pull/8 已合併。實機 DEFERRED 仍在。
+- 2026-10-14 1.4.1 實作紀錄：選項跟置頂、全螢幕、聲音放在同一區。下次連線才套用。參數沒有 `--no-control`、`--no-mouse`、`--no-keyboard`。連線畫面提示可用滑鼠與鍵盤操作手機。iPhone／iPad 的 AVCapture 核心沒改。當時 `scripts/test.sh` 94 assertions。沒有開 GUI、沒有安裝、沒有封裝。
 - 1.4 原工作區是 `ThatMirror-wt-dev`，基線 main `df9f42d`（1.3.3）。
 - 本線只顯示即時畫面，已移除 GIF 錄製。Apple USB／擷取卡使用原 AVCaptureDevice 核心；Android 面板顯示時暫停 Apple session，返回時恢復，避免隱藏聲音混播；Android 用 scrcpy 的獨立可控制視窗。
 - 固定官方 scrcpy 4.0 aarch64 套件，內含 adb 37.0.0；`scripts/fetch-scrcpy.sh` 核 SHA，vendor 二進位不入 git。完整 Apache、adb 與靜態依賴授權在 `licenses/`。

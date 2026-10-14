@@ -49,7 +49,7 @@ def placeholders(value):
 def source_keys():
     keys = []
     pattern = re.compile(r"\b(?:" + "|".join(ui_calls) + r")\(\s*\"((?:\\.|[^\"\\])*)\"")
-    for name in ("MirrorApp.swift", "MirrorLogic.swift", "AndroidManager.swift"):
+    for name in ("MirrorApp.swift", "MirrorLogic.swift", "AndroidManager.swift", "AboutView.swift", "CatWinkView.swift"):
         text = (root / name).read_text(encoding="utf-8")
         keys.extend(unescape(item) for item in pattern.findall(text))
         if name == "MirrorApp.swift":

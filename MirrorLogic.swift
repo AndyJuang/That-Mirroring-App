@@ -217,3 +217,135 @@ func queryTool(executable: URL, arguments: [String], environment: [String: Strin
     drain(outputFD, retain: true); drain(errorFD, retain: false)
     return ToolQueryResult(stdout: String(decoding: output, as: UTF8.self), exitStatus: process.terminationStatus, timedOut: timedOut)
 }
+
+struct AppVersionInfo: Equatable {
+    var marketing: String
+    var build: String
+
+    static func from(infoDictionary: [String: Any]) -> AppVersionInfo {
+        AppVersionInfo(
+            marketing: infoDictionary["CFBundleShortVersionString"] as? String ?? "",
+            build: infoDictionary["CFBundleVersion"] as? String ?? ""
+        )
+    }
+
+    static func current(_ bundle: Bundle = .main) -> AppVersionInfo {
+        from(infoDictionary: bundle.infoDictionary ?? [:])
+    }
+
+    var copyText: String { "That Mirroring \(marketing) (\(build))" }
+}
+
+func appVersionLabel(_ info: AppVersionInfo) -> String {
+    localizedText("Version %@ (%@)", info.marketing, info.build)
+}
+
+// Five taps whose newest and oldest are at most two seconds apart.
+struct IconTapSeries: Equatable {
+    static let requiredCount = 5
+    static let window: TimeInterval = 2
+    private(set) var times: [TimeInterval] = []
+
+    mutating func register(at time: TimeInterval) -> Bool {
+        times.append(time)
+        times.removeAll { time - $0 > Self.window }
+        guard times.count >= Self.requiredCount else { return false }
+        times.removeAll()
+        return true
+    }
+}
+
+enum AboutLinks {
+    static let website = URL(string: "https://ahadigit.work")!
+    static let email = URL(string: "mailto:hello@ahadigit.work")!
+    static let youtube = URL(string: "https://www.youtube.com/@ohthataj")!
+    static let contactAddress = "hello@ahadigit.work"
+    static let sisterBundleIdentifier = "com.andyjuang.ai-teaching-recorder"
+}
+
+enum AboutLinkKind: Equatable {
+    case website
+    case email
+    case youtube
+    case sister
+}
+
+enum AboutDestination: Equatable {
+    case application(bundleIdentifier: String)
+    case url(URL)
+}
+
+func aboutDestination(_ kind: AboutLinkKind, sisterInstalled: Bool) -> AboutDestination {
+    switch kind {
+    case .website:
+        return .url(AboutLinks.website)
+    case .email:
+        return .url(AboutLinks.email)
+    case .youtube:
+        return .url(AboutLinks.youtube)
+    case .sister:
+        if sisterInstalled { return .application(bundleIdentifier: AboutLinks.sisterBundleIdentifier) }
+        return .url(AboutLinks.website)
+    }
+}
+
+func aboutURLIsAllowed(_ url: URL) -> Bool {
+    url == AboutLinks.website || url == AboutLinks.email || url == AboutLinks.youtube
+}
+
+struct LicenseDocument: Equatable, Identifiable {
+    var relativePath: String
+    var text: String
+    var id: String { relativePath }
+}
+
+struct OpenSourceNotices: Equatable {
+    var summary: String
+    var documents: [LicenseDocument]
+}
+
+func openSourceNoticesURL(resources: URL, fileManager: FileManager = .default) -> URL? {
+    let candidates = [
+        "scrcpy/THIRD-PARTY-NOTICES.md",
+        "THIRD-PARTY-NOTICES.md",
+        "scrcpy/licenses/THIRD-PARTY-NOTICES.md",
+        "licenses/THIRD-PARTY-NOTICES.md",
+    ].map { resources.appendingPathComponent($0) }
+    return candidates.first { fileManager.isReadableFile(atPath: $0.path) }
+}
+
+func openSourceLicenseRoot(resources: URL, fileManager: FileManager = .default) -> URL? {
+    let candidates = [
+        resources.appendingPathComponent("scrcpy/licenses", isDirectory: true),
+        resources.appendingPathComponent("licenses", isDirectory: true),
+    ]
+    return candidates.first { fileManager.fileExists(atPath: $0.path) }
+}
+
+func licenseDocuments(in licensesRoot: URL, fileManager: FileManager = .default) -> [LicenseDocument] {
+    guard let enumerator = fileManager.enumerator(at: licensesRoot, includingPropertiesForKeys: [.isRegularFileKey, .fileSizeKey], options: [.skipsHiddenFiles]) else {
+        return []
+    }
+    let rootPath = licensesRoot.standardizedFileURL.path
+    var found: [LicenseDocument] = []
+    for case let url as URL in enumerator {
+        let values = try? url.resourceValues(forKeys: [.isRegularFileKey, .fileSizeKey])
+        guard values?.isRegularFile == true, url.lastPathComponent != "THIRD-PARTY-NOTICES.md" else { continue }
+        if let size = values?.fileSize, size > 1_048_576 { continue }
+        guard let text = try? String(contentsOf: url, encoding: .utf8) else { continue }
+        let full = url.standardizedFileURL.path
+        let relative = full.hasPrefix(rootPath + "/") ? String(full.dropFirst(rootPath.count + 1)) : url.lastPathComponent
+        found.append(LicenseDocument(relativePath: relative, text: text))
+    }
+    return found.sorted { $0.relativePath < $1.relativePath }
+}
+
+func loadOpenSourceNotices(resources: URL, fileManager: FileManager = .default) -> OpenSourceNotices? {
+    guard let noticesURL = openSourceNoticesURL(resources: resources, fileManager: fileManager),
+          let summary = try? String(contentsOf: noticesURL, encoding: .utf8),
+          !summary.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return nil }
+    let documents = openSourceLicenseRoot(resources: resources, fileManager: fileManager).map {
+        licenseDocuments(in: $0, fileManager: fileManager)
+    } ?? []
+    return OpenSourceNotices(summary: summary, documents: documents)
+}
