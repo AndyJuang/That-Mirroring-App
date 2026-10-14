@@ -9,7 +9,11 @@ final class AndroidManager: ObservableObject {
     @Published private(set) var status = localizedText("Looking for Android devices…")
     @Published private(set) var isRefreshing = false
     @Published var showSetup = false
-    @Published var options = AndroidWindowOptions()
+    @Published var options = AndroidWindowOptions.stored() {
+        didSet {
+            if options.turnScreenOff != oldValue.turnScreenOff { options.save() }
+        }
+    }
     private let queue = DispatchQueue(label: "ThatMirroring.adb")
     private var refreshTimer: Timer?
     private var observers: [NSObjectProtocol] = []
@@ -139,6 +143,7 @@ struct AndroidSetupView: View {
             VStack(alignment: .leading, spacing: 16) {
                 Label("Android over USB", systemImage: "smartphone").font(.title2.bold())
                 Text(manager.status).textSelection(.enabled)
+                Text("Use your mouse and keyboard to control the phone.").font(.callout).foregroundStyle(.secondary)
                 ForEach(manager.devices) { device in
                     Button { manager.start(device) } label: {
                         HStack {
@@ -158,6 +163,7 @@ struct AndroidSetupView: View {
                 Toggle("Keep Window on Top", isOn: $manager.options.alwaysOnTop)
                 Toggle("Open in Full Screen", isOn: $manager.options.fullscreen)
                 Toggle("Play Android Audio", isOn: $manager.options.audio)
+                Toggle("Turn Off Phone Screen", isOn: $manager.options.turnScreenOff)
                 Text("In the mirror window, press F11 or Option-F for full screen. Closing the window stops mirroring. Quitting That Mirroring also stops it. Audio is off by default. Some older phones cannot send audio.").font(.callout).foregroundStyle(.secondary)
                 Button("Back to iPhone, iPad, or Capture Card") { manager.stopMirror(); manager.showSetup = false }
             }.padding(24)

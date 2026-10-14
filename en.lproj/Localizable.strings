@@ -36,6 +36,8 @@
 "Keep Window on Top" = "Keep Window on Top";
 "Open in Full Screen" = "Open in Full Screen";
 "Play Android Audio" = "Play Android Audio";
+"Turn Off Phone Screen" = "Turn Off Phone Screen";
+"Use your mouse and keyboard to control the phone." = "Use your mouse and keyboard to control the phone.";
 "In the mirror window, press F11 or Option-F for full screen. Closing the window stops mirroring. Quitting That Mirroring also stops it. Audio is off by default. Some older phones cannot send audio." = "In the mirror window, press F11 or Option-F for full screen. Closing the window stops mirroring. Quitting That Mirroring also stops it. Audio is off by default. Some older phones cannot send audio.";
 "Back to iPhone, iPad, or Capture Card" = "Back to iPhone, iPad, or Capture Card";
 

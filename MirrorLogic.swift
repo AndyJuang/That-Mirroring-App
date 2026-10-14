@@ -115,9 +115,22 @@ func resolveAndroidTools(resources: URL?, fallback: URL = URL(fileURLWithPath: "
 }
 
 struct AndroidWindowOptions {
+    // Off until the user asks. Only this option is stored; the others stay session-only.
+    static let turnScreenOffKey = "AndroidTurnScreenOff"
     var alwaysOnTop = false
     var fullscreen = false
     var audio = false
+    var turnScreenOff = false
+
+    static func stored(in defaults: UserDefaults = .standard) -> AndroidWindowOptions {
+        var options = AndroidWindowOptions()
+        options.turnScreenOff = defaults.bool(forKey: turnScreenOffKey)
+        return options
+    }
+
+    func save(to defaults: UserDefaults = .standard) {
+        defaults.set(turnScreenOff, forKey: Self.turnScreenOffKey)
+    }
 }
 func scrcpyArguments(device: AndroidDevice, options: AndroidWindowOptions) -> [String] {
     var result = ["--serial=\(device.serial)", "--window-title=That Mirroring — Android · \(device.model)",
@@ -126,6 +139,7 @@ func scrcpyArguments(device: AndroidDevice, options: AndroidWindowOptions) -> [S
     result.append(options.audio ? "--audio-source=output" : "--no-audio")
     if options.alwaysOnTop { result.append("--always-on-top") }
     if options.fullscreen { result.append("--fullscreen") }
+    if options.turnScreenOff { result.append("--turn-screen-off") }
     return result
 }
 

@@ -1,6 +1,7 @@
 # That Mirroring — 交接
 
-- 目前工作區是 `ThatMirror-wt-i18n`，分支 `feat/i18n`，基底是 `feat/that-mirroring-1.4`（PR #4，1.4.0／build 8）。介面語系見下方 2026-10-13 決策。1.4 進度與實機 DEFERRED 仍在 `docs/PROGRESS_1.4.md`。自動化證據：`GATES.md`。
+- 目前工作區是 `ThatMirror-wt-141`，分支 `feat/1.4.1-android-polish`，基底 main（1.4.0／build 8，已含 Android／scrcpy 與介面語系）。這次是 1.4.1／build 9：Android「投影時關閉手機螢幕」與操控提示。實機 DEFERRED 仍在 `docs/PROGRESS_1.4.md`。自動化證據：`GATES.md`。
+- 2026-10-14 1.4.1：選項跟置頂、全螢幕、聲音放在同一區，預設關，只把這一項寫進 `AndroidTurnScreenOff`。下次連線才套用。開啟時才加 `--turn-screen-off`。參數沒有 `--no-control`、`--no-mouse`、`--no-keyboard`。連線畫面提示可用滑鼠與鍵盤操作手機。iPhone／iPad 的 AVCapture 核心沒改。`scripts/test.sh` 94 assertions、3 guards、字串對齊；`scripts/build.sh` BUILD VERIFIED；`audit-source.py` SOURCE VERIFIED；`verify-icon.py` ICON VERIFIED。秘密掃描沒有。沒有開 GUI、沒有安裝、沒有封裝。PR https://github.com/AndyJuang/That-Mirroring-App/pull/8 ，目標 main，內文 Refs #3。不 merge、不 tag、不發 GitHub Release。
 - 1.4 原工作區是 `ThatMirror-wt-dev`，基線 main `df9f42d`（1.3.3）。
 - 本線只顯示即時畫面，已移除 GIF 錄製。Apple USB／擷取卡使用原 AVCaptureDevice 核心；Android 面板顯示時暫停 Apple session，返回時恢復，避免隱藏聲音混播；Android 用 scrcpy 的獨立可控制視窗。
 - 固定官方 scrcpy 4.0 aarch64 套件，內含 adb 37.0.0；`scripts/fetch-scrcpy.sh` 核 SHA，vendor 二進位不入 git。完整 Apache、adb 與靜態依賴授權在 `licenses/`。
