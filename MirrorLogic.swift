@@ -323,15 +323,15 @@ func openSourceLicenseRoot(resources: URL, fileManager: FileManager = .default) 
 }
 
 func licenseDocuments(in licensesRoot: URL, fileManager: FileManager = .default) -> [LicenseDocument] {
-    guard let enumerator = fileManager.enumerator(at: licensesRoot, includingPropertiesForKeys: [.isRegularFileKey, .fileSizeKey], options: [.skipsHiddenFiles]) else {
+    // adb/NOTICE.txt is about 1.1MB of text. Do not skip it for size.
+    guard let enumerator = fileManager.enumerator(at: licensesRoot, includingPropertiesForKeys: [.isRegularFileKey], options: [.skipsHiddenFiles]) else {
         return []
     }
     let rootPath = licensesRoot.standardizedFileURL.path
     var found: [LicenseDocument] = []
     for case let url as URL in enumerator {
-        let values = try? url.resourceValues(forKeys: [.isRegularFileKey, .fileSizeKey])
+        let values = try? url.resourceValues(forKeys: [.isRegularFileKey])
         guard values?.isRegularFile == true, url.lastPathComponent != "THIRD-PARTY-NOTICES.md" else { continue }
-        if let size = values?.fileSize, size > 1_048_576 { continue }
         guard let text = try? String(contentsOf: url, encoding: .utf8) else { continue }
         let full = url.standardizedFileURL.path
         let relative = full.hasPrefix(rootPath + "/") ? String(full.dropFirst(rootPath.count + 1)) : url.lastPathComponent
