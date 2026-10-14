@@ -8,7 +8,7 @@ mkdir -p "$app/Contents/MacOS" "$app/Contents/Resources" build/ModuleCache
 scripts/make-icon.sh
 scripts/fetch-scrcpy.sh
 xcrun swiftc -O -target arm64-apple-macos14.0 -module-cache-path build/ModuleCache \
-    MirrorApp.swift MirrorLogic.swift AndroidManager.swift -parse-as-library -o "$app/Contents/MacOS/ThatMirroring"
+    MirrorApp.swift MirrorLogic.swift AndroidManager.swift AboutView.swift CatWinkView.swift -parse-as-library -o "$app/Contents/MacOS/ThatMirroring"
 cp Info.plist "$app/Contents/Info.plist"
 for lang in en zh-Hant; do
     mkdir -p "$app/Contents/Resources/$lang.lproj"

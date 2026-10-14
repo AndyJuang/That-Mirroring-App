@@ -18,6 +18,10 @@ for lang in ('en', 'zh-Hant'):
         packaged[(lang, name)] = load_strings(folder / name)
 assert set(packaged[('en', 'Localizable.strings')]) == set(packaged[('zh-Hant', 'Localizable.strings')])
 assert packaged[('zh-Hant', 'Localizable.strings')]['Language'] == '語言'
+assert packaged[('en', 'Localizable.strings')]['About That Mirroring'] == 'About That Mirroring'
+assert packaged[('zh-Hant', 'Localizable.strings')]['About That Mirroring'] == '關於 That Mirroring'
+assert packaged[('zh-Hant', 'Localizable.strings')]['Open-Source Licenses'] == '開放原始碼授權'
+assert (root/'licenses'/'THIRD-PARTY-NOTICES.md').is_file()
 assert packaged[('zh-Hant', 'Localizable.strings')]['%@ (Screen)'] == '%@（畫面）'
 assert packaged[('en', 'Localizable.strings')]['Follow System'] == 'Follow System'
 assert packaged[('zh-Hant', 'InfoPlist.strings')]['NSCameraUsageDescription'] != packaged[('en', 'InfoPlist.strings')]['NSCameraUsageDescription']

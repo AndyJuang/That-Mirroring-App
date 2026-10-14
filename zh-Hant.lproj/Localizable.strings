@@ -62,3 +62,22 @@
 "%@ is open in That Mirroring. Use the Mac mouse and keyboard." = "%@ 已在 That Mirroring 開啟。可用 Mac 的滑鼠與鍵盤操作。";
 "Can't start Android mirroring. Download That Mirroring again." = "無法開始 Android 鏡像。請重新下載 That Mirroring。";
 "1) Use a data cable, not a charge-only cable.\n2) On the phone, open Settings > About phone and tap Build number 7 times.\n3) Open Settings > System > Developer options and turn on USB debugging.\n4) When asked, select Always allow from this computer, then tap Allow." = "1) 用可傳資料的傳輸線，不要用只能充電的線。\n2) 手機開啟「設定」>「關於手機」，連點「組建編號」7 次。\n3) 到「設定」>「系統」>「開發人員選項」，開啟「USB 偵錯」。\n4) 出現詢問時，勾選「一律允許使用這台電腦」，再按允許。";
+
+"About That Mirroring" = "關於 That Mirroring";
+"Version %@ (%@)" = "版本 %@ (%@)";
+"Copy Version Info" = "複製版本資訊";
+"Copied" = "已複製";
+"Mirror your iPhone, iPad or Android screen over USB with near-zero latency — for presentations, streaming and tutorials." = "用 USB 近零延遲鏡像 iPhone、iPad 與 Android 畫面，簡報、直播、教學都好用。";
+"Sister App" = "姊妹作";
+"Thatcaster" = "Thatcaster";
+"Thatcaster — multi-camera, multi-screen teaching recorder & editor." = "Thatcaster — 多機位、多螢幕教學錄影與剪輯。";
+"那個數位有限公司 / Aha Digital Co., Ltd." = "那個數位有限公司 / Aha Digital Co., Ltd.";
+"Website" = "官網";
+"Contact us" = "聯絡我們";
+"Watch “欸那個AJ” on YouTube" = "YouTube：《欸那個AJ》";
+"Open-Source Licenses" = "開放原始碼授權";
+"Acknowledgments" = "致謝";
+"© 2026 Aha Digital Co., Ltd. All rights reserved." = "© 2026 那個數位有限公司。保留所有權利。";
+"Android mirroring powered by scrcpy (Apache 2.0, Genymobile); also includes adb, FFmpeg (LGPL 2.1), SDL, libusb, dav1d and zlib." = "Android 鏡像由 scrcpy（Apache 2.0, Genymobile）驅動；另含 adb、FFmpeg (LGPL 2.1)、SDL、libusb、dav1d、zlib。";
+"Close" = "關閉";
+"Open-source notices are not in this copy." = "這份副本沒有開放原始碼授權檔。";
