@@ -115,3 +115,16 @@ App 只取 bundle 的完整 scrcpy／adb／server 工具組；缺檔才退回 `/
 - 1.4 已移除 GIF 錄製，畫面上沒有倒數可翻譯，沒有把錄製加回來。
 - 這支 App 沒有轉錄、字幕、MCP 工具描述、AI prompt、canvas 或片頭。那些不在這次範圍。
 - 實機項目（G6、G7，以及權限、聲音、Thatcaster 畫面）仍是 DEFERRED，沒有改完一半。沒有開 App、瀏覽器或 GUI。
+
+## 2026-10-14 1.4.1 Android 關閉手機螢幕
+
+分支 `feat/1.4.1-android-polish`，基底 main。版本 1.4.1；build 9。只做介面上的 Android 選項，沒有改輸出內容語系。
+
+- 連線畫面與「視窗置頂」「以全螢幕開啟」「播放 Android 聲音」同一區，新增「投影時關閉手機螢幕」。英文是 Turn Off Phone Screen。預設關。只記住這一項，鍵名 `AndroidTurnScreenOff`。全螢幕、置頂、聲音仍只在這次開啟期間有效。選項在下次連線才套用。
+- 有勾選時，scrcpy 參數加上 `--turn-screen-off`。沒有勾選時不加。參數沒有 `--no-control`、`--no-mouse`、`--no-keyboard`。
+- 連線畫面加一句「可用滑鼠與鍵盤操作手機。」英文是 Use your mouse and keyboard to control the phone.
+- 新字串在 `en.lproj` 與 `zh-Hant.lproj`。`scripts/check-strings.py` 為 STRINGS ALIGNED。
+- iPhone／iPad（AVCapture）核心沒改。`python3 scripts/audit-source.py` 為 SOURCE VERIFIED。
+- `scripts/test.sh`：94 assertions、3 guards、TESTS VERIFIED。`unset TMPDIR` 後 `scripts/build.sh`：BUILD VERIFIED。`python3 scripts/verify-icon.py`：ICON VERIFIED。秘密掃描：沒有。
+- 沒有開 App、沒有安裝、沒有提交 `.app` 或 `.dmg`。
+- 仍未做、不要在這支硬做完：Pixel USB 實機、視窗全螢幕／置頂／關閉、iPhone／iPad／擷取卡、權限、聲音、Thatcaster 畫面來源、icon 外觀。這些維持 DEFERRED。
