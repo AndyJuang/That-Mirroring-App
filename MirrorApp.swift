@@ -206,7 +206,7 @@ struct ContentView: View {
             if androidManager.showSetup {
                 AndroidSetupView(manager: androidManager)
             } else if captureManager.hasDevice {
-                PreviewView(session: captureManager.session, geometry: captureManager.geometry, attach: captureManager.attachPreview) { location in
+                PreviewView(session: captureManager.session, geometry: captureManager.geometry, attach: captureManager.attachPreview, frames: captureManager.frameSink) { location in
                     guard selectedAnimation != .none else { return }
                     let tap = TapData(location: location)
                     taps.append(tap)
@@ -531,6 +531,10 @@ class CaptureManager: NSObject, ObservableObject, AVCaptureVideoDataOutputSample
         return hasDevice
     }
 
+    // 視窗畫面改由 videoDataOutput 的影格畫在一般 CALayer 上（見 FrameSink）。
+    // AVCaptureVideoPreviewLayer 的影像走獨立 surface，Google Meet 等「分享單一視窗」擷取不到，只會看到黑畫面。
+    let frameSink = FrameSink()
+
     // 把 preview layer 接上 session 也會改 session（addVideoPreviewLayer → commitConfiguration）。
     // 1.4.0 (8) 的閃退正是 main 在 makeNSView 接 preview layer 時，另一條 queue 正在 startRunning。
     // 這裡先排進 sessionQueue，再同步到 main 設定 layer.session，讓它與設定／start／stop 依序執行。
@@ -561,6 +565,7 @@ class CaptureManager: NSObject, ObservableObject, AVCaptureVideoDataOutputSample
             return
         }
         guard let pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else { return }
+        frameSink.push(pixelBuffer)
         let rawSize = CGSize(width: CVPixelBufferGetWidth(pixelBuffer), height: CVPixelBufferGetHeight(pixelBuffer))
         let now = CACurrentMediaTime()
 
@@ -846,8 +851,38 @@ struct BlackBarDetector {
 // 預覽層放在可裁切的容器裡：容器 masksToBounds，預覽層放大到「內容」對齊容器並置中，黑邊就落在容器外。
 // 視窗比例與內容相差 3% 以內時填滿容器（最多裁掉約 1.5% 的邊緣）；相差更多時（例如全螢幕）等比塞入，只補黑邊。
 // 預覽層的 frame 在 layoutSublayers 隨容器 bounds 更新，避免 frame 為 zero 導致黑畫面。
+final class FrameSink {
+    // 把 captureQueue 收到的最新影格交給 main 上的 CALayer 顯示；main 來不及時只保留最新一張，不堆積。
+    private let lock = NSLock()
+    private var latest: CVPixelBuffer?
+    private var scheduled = false
+    private weak var target: CroppingPreviewLayer?
+
+    // 只在 main 上呼叫。
+    func setTarget(_ layer: CroppingPreviewLayer) { target = layer }
+
+    func push(_ buffer: CVPixelBuffer) {
+        lock.lock()
+        latest = buffer
+        let needsSchedule = !scheduled
+        scheduled = true
+        lock.unlock()
+        guard needsSchedule else { return }
+        DispatchQueue.main.async {
+            self.lock.lock()
+            let frame = self.latest
+            self.latest = nil
+            self.scheduled = false
+            self.lock.unlock()
+            if let frame { self.target?.show(frame) }
+        }
+    }
+}
+
 class CroppingPreviewLayer: CALayer {
     private(set) var preview = AVCaptureVideoPreviewLayer()
+    // 實際顯示的影像層：內容是 IOSurface，視窗擷取（Meet／Zoom 分享視窗）看得到。
+    private(set) var frameLayer = CALayer()
     var geometry = VideoGeometry() {
         didSet {
             guard geometry != oldValue else { return }
@@ -865,7 +900,22 @@ class CroppingPreviewLayer: CALayer {
         backgroundColor = NSColor.black.cgColor
         preview.videoGravity = .resize
         preview.backgroundColor = NSColor.black.cgColor
+        // preview 保留接在 session 上（不改 session 設定），但不顯示；畫面由 frameLayer 呈現。
+        preview.isHidden = true
         addSublayer(preview)
+        frameLayer.backgroundColor = NSColor.black.cgColor
+        frameLayer.contentsGravity = .resize
+        frameLayer.actions = ["contents": NSNull()]
+        addSublayer(frameLayer)
+    }
+
+    // 只在 main 上呼叫。
+    func show(_ buffer: CVPixelBuffer) {
+        guard let surface = CVPixelBufferGetIOSurface(buffer)?.takeUnretainedValue() else { return }
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        frameLayer.contents = surface
+        CATransaction.commit()
     }
 
     // 放大：畫面座標 p 顯示在 p * zoom + zoomOffset（以容器左下角為原點）。
@@ -883,6 +933,7 @@ class CroppingPreviewLayer: CALayer {
         super.init(layer: layer)
         if let other = layer as? CroppingPreviewLayer {
             preview = other.preview
+            frameLayer = other.frameLayer
             geometry = other.geometry
             zoom = other.zoom
             zoomOffset = other.zoomOffset
@@ -957,10 +1008,14 @@ class CroppingPreviewLayer: CALayer {
             preview.videoGravity = .resize
             preview.frame = CGRect(x: base.minX * zoom + zoomOffset.x, y: base.minY * zoom + zoomOffset.y,
                                    width: base.width * zoom, height: base.height * zoom)
+            frameLayer.contentsGravity = .resize
+            frameLayer.frame = preview.frame
         } else {
             // 還不知道影像尺寸時，整張等比顯示。
             preview.videoGravity = .resizeAspect
             preview.frame = bounds
+            frameLayer.contentsGravity = .resizeAspect
+            frameLayer.frame = bounds
         }
         CATransaction.commit()
     }
@@ -1200,11 +1255,13 @@ struct PreviewView: NSViewRepresentable {
     let geometry: VideoGeometry
     // 由 CaptureManager 在 sessionQueue 的順序內接上 session，見 attachPreview。
     let attach: (AVCaptureVideoPreviewLayer) -> Void
+    let frames: FrameSink
     let onTap: (CGPoint) -> Void
 
     func makeNSView(context: Context) -> PreviewNSView {
         let view = PreviewNSView()
         if let layer = view.previewLayer { attach(layer) }
+        if let container = view.layer as? CroppingPreviewLayer { frames.setTarget(container) }
         view.onTap = onTap
         return view
     }

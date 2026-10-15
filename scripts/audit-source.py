@@ -18,6 +18,14 @@ expected = expected.replace('    func setupSession() {\n', '    func setupSessio
 # fix/session-start-race-i18n: the session region (devicesChanged .. captureOutput) and PreviewView are
 # audited by invariants below; everything else in the Apple core must still match the baseline exactly.
 def outside_session_region(text):
+    # Frames are drawn by FrameSink/CroppingPreviewLayer.frameLayer so window capture (Meet) can see them.
+    text = text.replace('        frameSink.push(pixelBuffer)\n', '', 1)
+    if 'final class FrameSink {' in text:
+        f0 = text.index('final class FrameSink {')
+    else:
+        f0 = text.index('class CroppingPreviewLayer: CALayer {')
+    f1 = text.index('\n}\n', text.index('class CroppingPreviewLayer: CALayer {')) + 3
+    text = text[:f0] + text[f1:]
     lo = text.index('    @objc func devicesChanged')
     hi = text.index('    func captureOutput(_ output: AVCaptureOutput, didOutput')
     rest = text[:lo] + text[hi:]
@@ -38,4 +46,6 @@ preview = core[core.index('struct PreviewView: NSViewRepresentable {'):]
 preview = preview[:preview.index('\n}\n')]
 assert '.session = session' not in preview and preview.count('attach(layer)') == 2
 assert source.count('layer.session = self.session') == 1
+assert source.count('frameSink.push(pixelBuffer)') == 1 and 'preview.isHidden = true' in source
+assert 'frameLayer.contents = surface' in source and 'frames.setTarget(container)' in source
 print('SOURCE VERIFIED')
