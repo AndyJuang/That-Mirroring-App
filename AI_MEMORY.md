@@ -1,6 +1,7 @@
 # That Mirroring — 交接
 
-- 目前工作區是 `ThatMirror-wt-i18n`，分支 `feat/i18n`，基底是 `feat/that-mirroring-1.4`（PR #4，1.4.0／build 8）。介面語系見下方 2026-10-13 決策。1.4 進度與實機 DEFERRED 仍在 `docs/PROGRESS_1.4.md`。自動化證據：`GATES.md`。
+- 2026-10-15 #12：PGM 監看在工作區 `ThatMirror-wt-pgm-monitor`，分支 `feat/pgm-monitor`，提交 `bda5c43`。PR https://github.com/AndyJuang/That-Mirroring-App/pull/13 ，目標 `feat/i18n`，未合併。來源是 ScreenCaptureKit 擷取標題「Thatcaster — PGM 監看」與「Thatcaster — Program」，畫在一般 CALayer。不採用本機串流，也不採用 Syphon。手機投影的擷取沒有改。`scripts/test.sh` 117 assertions。xcodebuild 通過。沒有開 GUI，沒有安裝。不要合併 PR #13。實機的外接螢幕與延遲還沒看過。
+- i18n 工作區是 `ThatMirror-wt-i18n`，分支 `feat/i18n`，基底是 `feat/that-mirroring-1.4`（PR #4，1.4.0／build 8）。介面語系見下方 2026-10-13 決策。1.4 進度與實機 DEFERRED 仍在 `docs/PROGRESS_1.4.md`。自動化證據：`GATES.md`。
 - 1.4 原工作區是 `ThatMirror-wt-dev`，基線 main `df9f42d`（1.3.3）。
 - 本線只顯示即時畫面，已移除 GIF 錄製。Apple USB／擷取卡使用原 AVCaptureDevice 核心；Android 面板顯示時暫停 Apple session，返回時恢復，避免隱藏聲音混播；Android 用 scrcpy 的獨立可控制視窗。
 - 固定官方 scrcpy 4.0 aarch64 套件，內含 adb 37.0.0；`scripts/fetch-scrcpy.sh` 核 SHA，vendor 二進位不入 git。完整 Apache、adb 與靜態依賴授權在 `licenses/`。
