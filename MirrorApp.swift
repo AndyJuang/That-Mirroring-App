@@ -295,6 +295,10 @@ class CaptureManager: NSObject, ObservableObject, AVCaptureVideoDataOutputSample
     // 每次 setupSession 加 1（main 上存取）；音訊判斷帶著當時的版本，過期的結果直接丟掉，避免重新設定後卡在靜音。
     private var sessionGeneration = 0
     private let captureQueue = DispatchQueue(label: "ThatMirroring.captureQueue", qos: .userInitiated)
+    // 所有對 session 的設定（加減 input/output、preset）與 startRunning/stopRunning 都只在這條 serial queue 上做。
+    // 以前設定在 main、start 在 captureQueue，startRunning 列舉 inputs/outputs 時 main 又在改，
+    // 會在 -[AVCaptureSession _setRunning:] 觸發 __NSFastEnumerationMutationHandler 閃退。
+    private let sessionQueue = DispatchQueue(label: "ThatMirroring.sessionQueue", qos: .userInitiated)
     // 以下狀態只在 captureQueue 上存取。
     private var blackBarDetector = BlackBarDetector()
     private var lastDetectTime: CFTimeInterval = 0
@@ -358,9 +362,14 @@ class CaptureManager: NSObject, ObservableObject, AVCaptureVideoDataOutputSample
         // 重新連接時給 CoreMediaIO 0.5 秒讓裝置完整出現在 discovery session，
         // 否則 setupSession() 會找不到裝置而把畫面變成黑底。
         let delay: TimeInterval = notification.name == AVCaptureDevice.wasConnectedNotification ? 0.5 : 0.0
-        DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
-            self.availableDevices = CaptureManager.getAllDevices(videoSession: self.videoDiscoverySession, muxedSession: self.muxedDiscoverySession)
-            self.setupSession()
+        // 通知可能來自任意執行緒；延遲與裝置列舉排在 sessionQueue 上，
+        // 讓它和進行中的設定／startRunning 依序執行，再回 main 更新畫面狀態並排入新的設定。
+        sessionQueue.asyncAfter(deadline: .now() + delay) {
+            let devices = CaptureManager.getAllDevices(videoSession: self.videoDiscoverySession, muxedSession: self.muxedDiscoverySession)
+            DispatchQueue.main.async {
+                self.availableDevices = devices
+                self.setupSession()
+            }
         }
     }
     
@@ -373,12 +382,14 @@ class CaptureManager: NSObject, ObservableObject, AVCaptureVideoDataOutputSample
         return audioDevices.first { $0.localizedName == videoDevice.localizedName }
     }
 
+    // 只在 main 上呼叫：擷取 main 上的狀態，實際設定排到 sessionQueue。
     func setupSession() {
+        dispatchPrecondition(condition: .onQueue(.main))
         if isSuspendedForAndroid {
             sessionGeneration += 1
             audioSignalBroken = false
             hasDevice = false
-            captureQueue.async { if self.session.isRunning { self.session.stopRunning() } }
+            sessionQueue.async { self.stopSessionOnQueue() }
             return
         }
         // 第一次開啟「播放裝置聲音」時先要麥克風權限，拿到結果後再重新設定。
@@ -390,20 +401,40 @@ class CaptureManager: NSObject, ObservableObject, AVCaptureVideoDataOutputSample
         }
         sessionGeneration += 1
         audioSignalBroken = false
+        let config = SessionConfig(
+            devices: availableDevices,
+            selectedDeviceID: selectedDeviceID,
+            playDeviceAudio: playDeviceAudio,
+            generation: sessionGeneration
+        )
+        sessionQueue.async { self.configureSessionOnQueue(config) }
+    }
+
+    private struct SessionConfig {
+        let devices: [AVCaptureDevice]
+        let selectedDeviceID: String?
+        let playDeviceAudio: Bool
+        let generation: Int
+    }
+
+    // 只在 sessionQueue 上執行。設定一律包在 begin/commitConfiguration 內，commit 之後才 start。
+    private func configureSessionOnQueue(_ config: SessionConfig) {
+        dispatchPrecondition(condition: .onQueue(sessionQueue))
+        var found = false
         session.beginConfiguration()
         captureQueue.async { self.needsDetectorReset = true }
-        
+
         for input in session.inputs {
             session.removeInput(input)
         }
         for output in session.outputs {
             session.removeOutput(output)
         }
-        
+
         var selectedDevice: AVCaptureDevice? = nil
-        let devices = self.availableDevices
+        let devices = config.devices
         
-        if let id = selectedDeviceID, let device = devices.first(where: { $0.uniqueID == id }) {
+        if let id = config.selectedDeviceID, let device = devices.first(where: { $0.uniqueID == id }) {
             selectedDevice = device
         } else {
             // Auto Select
@@ -424,7 +455,7 @@ class CaptureManager: NSObject, ObservableObject, AVCaptureVideoDataOutputSample
                 // 沒開「播放裝置聲音」時停用 audio port，讓 CoreAudio 不鎖住 iPhone 麥克風，
                 // 其他 app 或錄音執行緒才能自由取用。
                 // 沒有麥克風權限時不開聲音，避免 session 因權限錯誤停止、連畫面一起中斷。
-                let audioOK = playDeviceAudio && AVCaptureDevice.authorizationStatus(for: .audio) == .authorized
+                let audioOK = config.playDeviceAudio && AVCaptureDevice.authorizationStatus(for: .audio) == .authorized
                 var hasAudio = false
                 for port in input.ports where port.mediaType == .audio {
                     port.isEnabled = audioOK
@@ -451,16 +482,16 @@ class CaptureManager: NSObject, ObservableObject, AVCaptureVideoDataOutputSample
                         session.addOutput(audioDataOutput)
                     }
                 }
-                let generation = sessionGeneration
+                let generation = config.generation
                 audioQueue.async { self.audioMonitor = AudioSignalMonitor(generation: generation) }
-                hasDevice = true
+                found = true
                 print("Added input: \(device.localizedName)")
             } else {
-                hasDevice = false
+                found = false
                 print("Cannot add input for \(device.localizedName)")
             }
         } else {
-            hasDevice = false
+            found = false
             print("No device found")
         }
         
@@ -473,17 +504,29 @@ class CaptureManager: NSObject, ObservableObject, AVCaptureVideoDataOutputSample
         session.sessionPreset = .high
         session.commitConfiguration()
 
-        // startRunning/stopRunning 都放到背景執行，避免快速 disconnect/reconnect 時
-        // 主執行緒的呼叫順序與背景任務交叉導致 session 應啟動卻已被停止。
-        if hasDevice {
-            if !session.isRunning {
-                captureQueue.async { self.session.startRunning() }
-            }
-        } else {
-            if session.isRunning {
-                captureQueue.async { self.session.stopRunning() }
-            }
+        let generation = config.generation
+        DispatchQueue.main.async {
+            // 只採用最新一次設定的結果，避免較舊的設定蓋掉狀態。
+            if generation == self.sessionGeneration { self.hasDevice = found }
         }
+        if found {
+            startSessionOnQueue()
+        } else {
+            stopSessionOnQueue()
+        }
+    }
+
+    // startRunning 是同步呼叫；因為只在 serial sessionQueue 上執行並先檢查 isRunning，不會重複 start。
+    private func startSessionOnQueue() {
+        dispatchPrecondition(condition: .onQueue(sessionQueue))
+        guard !session.isRunning else { return }
+        session.startRunning()
+    }
+
+    private func stopSessionOnQueue() {
+        dispatchPrecondition(condition: .onQueue(sessionQueue))
+        guard session.isRunning else { return }
+        session.stopRunning()
     }
     
     func captureOutput(_ output: AVCaptureOutput, didOutput sampleBuffer: CMSampleBuffer, from connection: AVCaptureConnection) {
