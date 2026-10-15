@@ -1,2 +1,3 @@
 "NSCameraUsageDescription" = "That Mirroring needs camera access to show a USB device or capture card.";
 "NSMicrophoneUsageDescription" = "That Mirroring needs microphone access to play device audio.";
+"NSScreenCaptureUsageDescription" = "That Mirroring shows the Thatcaster program window on a display you choose. It does not save a recording.";

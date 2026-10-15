@@ -33,5 +33,7 @@
 	<true/>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>That Mirroring needs microphone access to play device audio.</string>
+	<key>NSScreenCaptureUsageDescription</key>
+	<string>That Mirroring shows the Thatcaster program window on a display you choose. It does not save a recording.</string>
 </dict>
 </plist>

@@ -10,6 +10,7 @@ struct ThatMirroringApp: App {
     init() { migrateLegacyRecordingSettings(UserDefaults.standard) }
     @StateObject private var captureManager = CaptureManager()
     @StateObject private var androidManager = AndroidManager()
+    @StateObject private var pgmMonitor = PGMMonitorController()
     @AppStorage("SelectedAnimation") private var selectedAnimation: AnimationType = .cursor
     @AppStorage("AutoCropBlackBars") private var autoCropBlackBars: Bool = true
     @State private var appLanguage = AppLanguageSetting.stored()
@@ -122,6 +123,38 @@ struct ThatMirroringApp: App {
                 Divider()
                 Button("Reopen the app to apply.") {}
                     .disabled(true)
+            }
+
+            CommandMenu("Display") {
+                Button(action: { pgmMonitor.togglePGM() }) {
+                    Text("Show PGM Monitor")
+                    if pgmMonitor.pgmVisible { Image(systemName: "checkmark") }
+                }
+                Button(action: { pgmMonitor.togglePhone() }) {
+                    Text("Show Phone Mirror")
+                    if pgmMonitor.phoneVisible { Image(systemName: "checkmark") }
+                }
+                Divider()
+                Menu {
+                    ForEach(pgmMonitor.screens) { item in
+                        Button(action: { pgmMonitor.choosePGM(id: item.id) }) {
+                            Text(verbatim: item.title)
+                            if pgmMonitor.pgmScreenID == item.identity.id { Image(systemName: "checkmark") }
+                        }
+                    }
+                } label: {
+                    Text("PGM Screen")
+                }
+                Menu {
+                    ForEach(pgmMonitor.screens) { item in
+                        Button(action: { pgmMonitor.choosePhone(id: item.id) }) {
+                            Text(verbatim: item.title)
+                            if pgmMonitor.phoneScreenID == item.identity.id { Image(systemName: "checkmark") }
+                        }
+                    }
+                } label: {
+                    Text("Phone Screen")
+                }
             }
         }
     }

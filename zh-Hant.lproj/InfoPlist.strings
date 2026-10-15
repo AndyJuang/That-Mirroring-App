@@ -1,2 +1,3 @@
 "NSCameraUsageDescription" = "That Mirroring 需要相機權限，才能顯示 USB 裝置或擷取卡畫面。";
 "NSMicrophoneUsageDescription" = "That Mirroring 需要麥克風權限，才能播放裝置聲音。";
+"NSScreenCaptureUsageDescription" = "That Mirroring 會把 Thatcaster 的節目畫面顯示在你選的螢幕上。不會儲存錄影。";

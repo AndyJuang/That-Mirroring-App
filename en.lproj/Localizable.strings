@@ -25,6 +25,22 @@
 "English" = "English";
 "Reopen the app to apply." = "Reopen the app to apply.";
 
+"Display" = "Display";
+"Show PGM Monitor" = "Show PGM Monitor";
+"Show Phone Mirror" = "Show Phone Mirror";
+"PGM Screen" = "PGM Screen";
+"Phone Screen" = "Phone Screen";
+"Screen %d" = "Screen %d";
+"Native (1:1)" = "Native (1:1)";
+"Fit to Screen" = "Fit to Screen";
+"%d × %d" = "%d × %d";
+"No picture yet." = "No picture yet.";
+"The picture stopped." = "The picture stopped.";
+"Waiting for the Thatcaster PGM window." = "Waiting for the Thatcaster PGM window.";
+"Allow screen recording in System Settings, then show the monitor again." = "Allow screen recording in System Settings, then show the monitor again.";
+"Press 1 for native pixels. Press F to fit the screen. Drag to pan when the picture is larger than the screen. Press Esc to close." = "Press 1 for native pixels. Press F to fit the screen. Drag to pan when the picture is larger than the screen. Press Esc to close.";
+"Info" = "Info";
+
 "Connect an iPhone, iPad, or Android" = "Connect an iPhone, iPad, or Android";
 "For iPhone or iPad, plug in USB, unlock, and trust this Mac.\nFor a capture card or camera, choose it in the Device menu." = "For iPhone or iPad, plug in USB, unlock, and trust this Mac.\nFor a capture card or camera, choose it in the Device menu.";
 "Android Setup and Devices" = "Android Setup and Devices";

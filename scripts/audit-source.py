@@ -1,12 +1,24 @@
 #!/usr/bin/env python3
 import pathlib, plistlib, subprocess
 source = pathlib.Path('MirrorApp.swift').read_text()
-for symbol in ['GifRecorder', 'AVAssetWriter', 'ScreenCaptureKit', 'ToggleRecording', 'SCStream', 'gifRecorder', 'CommandMenu("Record")']:
-    # Known positive control: this detector must reject the forbidden symbol.
-    assert symbol in ('fixture ' + symbol)
-    assert symbol not in source, f'recording code remains: {symbol}'
+app_sources = ['MirrorApp.swift', 'MirrorLogic.swift', 'AndroidManager.swift', 'PGMMonitor.swift']
+for name in app_sources:
+    text = pathlib.Path(name).read_text()
+    for symbol in ['GifRecorder', 'AVAssetWriter', 'ToggleRecording', 'gifRecorder', 'CommandMenu("Record")']:
+        # Known positive control: this detector must reject the forbidden symbol.
+        assert symbol in ('fixture ' + symbol)
+        assert symbol not in text, f'recording code remains: {symbol} in {name}'
+# Phone mirroring stays on the camera path. PGM display is the only ScreenCaptureKit user.
+for symbol in ['ScreenCaptureKit', 'SCStream']:
+    assert symbol not in source, f'phone window picked up capture: {symbol}'
+pgm = pathlib.Path('PGMMonitor.swift').read_text()
+assert 'import ScreenCaptureKit' in pgm
+assert 'SCContentFilter' in pgm and 'desktopIndependentWindow' in pgm
+assert 'AVCaptureVideoPreviewLayer' not in pgm
+assert 'CALayer' in pgm and 'imageLayer.contents' in pgm
 plist = plistlib.loads(pathlib.Path('Info.plist').read_bytes())
-assert 'NSScreenCaptureUsageDescription' not in plist
+permission = plist.get('NSScreenCaptureUsageDescription')
+assert isinstance(permission, str) and permission and 'save a recording' in permission
 assert plist['CFBundleName'] == plist['CFBundleDisplayName'] == 'That Mirroring'
 assert 'iPhoneMirrorApp' not in source
 baseline = subprocess.check_output(['git', 'show', '8e4b3e1:MirrorApp.swift'], text=True)
