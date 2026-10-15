@@ -206,7 +206,7 @@ struct ContentView: View {
             if androidManager.showSetup {
                 AndroidSetupView(manager: androidManager)
             } else if captureManager.hasDevice {
-                PreviewView(session: captureManager.session, geometry: captureManager.geometry) { location in
+                PreviewView(session: captureManager.session, geometry: captureManager.geometry, attach: captureManager.attachPreview) { location in
                     guard selectedAnimation != .none else { return }
                     let tap = TapData(location: location)
                     taps.append(tap)
@@ -387,9 +387,14 @@ class CaptureManager: NSObject, ObservableObject, AVCaptureVideoDataOutputSample
         // 重新連接時給 CoreMediaIO 0.5 秒讓裝置完整出現在 discovery session，
         // 否則 setupSession() 會找不到裝置而把畫面變成黑底。
         let delay: TimeInterval = notification.name == AVCaptureDevice.wasConnectedNotification ? 0.5 : 0.0
-        DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
-            self.availableDevices = CaptureManager.getAllDevices(videoSession: self.videoDiscoverySession, muxedSession: self.muxedDiscoverySession)
-            self.setupSession()
+        // 通知可能來自任意執行緒；延遲與裝置列舉排在 sessionQueue 上，
+        // 讓它和進行中的設定／startRunning 依序執行，再回 main 更新畫面狀態並排入新的設定。
+        sessionQueue.asyncAfter(deadline: .now() + delay) {
+            let devices = CaptureManager.getAllDevices(videoSession: self.videoDiscoverySession, muxedSession: self.muxedDiscoverySession)
+            DispatchQueue.main.async {
+                self.availableDevices = devices
+                self.setupSession()
+            }
         }
     }
     
@@ -402,12 +407,14 @@ class CaptureManager: NSObject, ObservableObject, AVCaptureVideoDataOutputSample
         return audioDevices.first { $0.localizedName == videoDevice.localizedName }
     }
 
+    // 只在 main 上呼叫：擷取 main 上的狀態，實際設定排到 sessionQueue。
     func setupSession() {
+        dispatchPrecondition(condition: .onQueue(.main))
         if isSuspendedForAndroid {
             sessionGeneration += 1
             audioSignalBroken = false
             hasDevice = false
-            sessionQueue.async { if self.session.isRunning { self.session.stopRunning() } }
+            sessionQueue.async { self.stopSessionOnQueue() }
             return
         }
         // 第一次開啟「播放裝置聲音」時先要麥克風權限，拿到結果後再重新設定。
@@ -434,6 +441,7 @@ class CaptureManager: NSObject, ObservableObject, AVCaptureVideoDataOutputSample
 
     // 只在 sessionQueue 上呼叫。
     private func configureSession(devices: [AVCaptureDevice], selectedID: String?, playAudio: Bool, generation: Int) -> Bool {
+        dispatchPrecondition(condition: .onQueue(sessionQueue))
         var hasDevice = false
         session.beginConfiguration()
         
@@ -514,14 +522,37 @@ class CaptureManager: NSObject, ObservableObject, AVCaptureVideoDataOutputSample
         session.sessionPreset = .high
         session.commitConfiguration()
 
-        // startRunning/stopRunning 都放到背景執行，避免快速 disconnect/reconnect 時
-        // 主執行緒的呼叫順序與背景任務交叉導致 session 應啟動卻已被停止。
+        // commit 之後才 start；start/stop 只在 sessionQueue 上。
         if hasDevice {
-            if !session.isRunning { session.startRunning() }
+            startSessionOnQueue()
         } else {
-            if session.isRunning { session.stopRunning() }
+            stopSessionOnQueue()
         }
         return hasDevice
+    }
+
+    // 把 preview layer 接上 session 也會改 session（addVideoPreviewLayer → commitConfiguration）。
+    // 1.4.0 (8) 的閃退正是 main 在 makeNSView 接 preview layer 時，另一條 queue 正在 startRunning。
+    // 這裡先排進 sessionQueue，再同步到 main 設定 layer.session，讓它與設定／start／stop 依序執行。
+    func attachPreview(_ layer: AVCaptureVideoPreviewLayer) {
+        sessionQueue.async {
+            DispatchQueue.main.sync {
+                if layer.session !== self.session { layer.session = self.session }
+            }
+        }
+    }
+
+    // startRunning 是同步呼叫；因為只在 serial sessionQueue 上執行並先檢查 isRunning，不會重複 start。
+    private func startSessionOnQueue() {
+        dispatchPrecondition(condition: .onQueue(sessionQueue))
+        guard !session.isRunning else { return }
+        session.startRunning()
+    }
+
+    private func stopSessionOnQueue() {
+        dispatchPrecondition(condition: .onQueue(sessionQueue))
+        guard session.isRunning else { return }
+        session.stopRunning()
     }
     
     func captureOutput(_ output: AVCaptureOutput, didOutput sampleBuffer: CMSampleBuffer, from connection: AVCaptureConnection) {
@@ -1167,18 +1198,20 @@ class PreviewNSView: NSView {
 struct PreviewView: NSViewRepresentable {
     let session: AVCaptureSession
     let geometry: VideoGeometry
+    // 由 CaptureManager 在 sessionQueue 的順序內接上 session，見 attachPreview。
+    let attach: (AVCaptureVideoPreviewLayer) -> Void
     let onTap: (CGPoint) -> Void
 
     func makeNSView(context: Context) -> PreviewNSView {
         let view = PreviewNSView()
-        view.previewLayer?.session = session
+        if let layer = view.previewLayer { attach(layer) }
         view.onTap = onTap
         return view
     }
 
     func updateNSView(_ nsView: PreviewNSView, context: Context) {
-        if nsView.previewLayer?.session !== session {
-            nsView.previewLayer?.session = session
+        if let layer = nsView.previewLayer, layer.session !== session {
+            attach(layer)
         }
         (nsView.layer as? CroppingPreviewLayer)?.geometry = geometry
         nsView.onTap = onTap
