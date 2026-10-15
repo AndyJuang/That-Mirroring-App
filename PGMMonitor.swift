@@ -46,6 +46,9 @@ final class PGMMonitorController: ObservableObject {
     private var sourcePixelSize: CGSize = .zero
     private let captureQueue = DispatchQueue(label: "ThatMirroring.pgmCapture", qos: .userInteractive)
     private let pump = PGMFramePump()
+    private var stallState = PGMStallState()
+    private var stallTimer: Timer?
+    private var stallDeadline: Date?
 
     init() {
         let defaults = UserDefaults.standard
@@ -60,14 +63,15 @@ final class PGMMonitorController: ObservableObject {
     }
 
     deinit {
+        stallTimer?.invalidate()
         for observer in observers { NotificationCenter.default.removeObserver(observer) }
         if let keyMonitor { NSEvent.removeMonitor(keyMonitor) }
     }
 
     func start() {
         guard observers.isEmpty else { return }
-        pump.onFrame = { [weak self] buffer in
-            self?.present(buffer)
+        pump.onFrame = { [weak self] buffer, signature in
+            self?.present(buffer, signature: signature)
         }
         observers.append(NotificationCenter.default.addObserver(forName: NSApplication.didChangeScreenParametersNotification, object: nil, queue: .main) { [weak self] _ in
             MainActor.assumeIsolated { self?.screensChanged() }
@@ -379,7 +383,7 @@ final class PGMMonitorController: ObservableObject {
         let output = PGMStreamOutput()
         let pump = self.pump
         output.onBuffer = { buffer in
-            pump.push(buffer)
+            pump.push(buffer, signature: pgmSignature(of: buffer))
         }
         output.onStop = { [weak self] in
             Task { @MainActor in
@@ -410,13 +414,15 @@ final class PGMMonitorController: ObservableObject {
         try? await stream.stopCapture()
     }
 
-    private func present(_ buffer: CVPixelBuffer) {
+    private func present(_ buffer: CVPixelBuffer, signature: UInt64?) {
         let size = CGSize(width: CVPixelBufferGetWidth(buffer), height: CVPixelBufferGetHeight(buffer))
         let sizeChanged = size != pixelSize
         pixelSize = size
         if problem != .none { problem = .none }
         videoView?.pixelSize = size
         videoView?.show(buffer)
+        stallState = pgmNoteContent(signature: signature, state: stallState, now: Date())
+        refreshStallHint()
         if sizeChanged || infoLabel?.window != nil { refreshInfo() }
     }
 
@@ -424,6 +430,39 @@ final class PGMMonitorController: ObservableObject {
         pixelSize = .zero
         videoView?.pixelSize = .zero
         videoView?.clearFrame()
+        resetStall()
+    }
+
+    private func resetStall() {
+        stallState = PGMStallState()
+        stallTimer?.invalidate()
+        stallTimer = nil
+        stallDeadline = nil
+        videoView?.setStallHintVisible(false)
+    }
+
+    private func refreshStallHint(now: Date = Date()) {
+        guard pgmVisible else {
+            videoView?.setStallHintVisible(false)
+            return
+        }
+        let show = pgmShowsStallHint(changedAt: stallState.changedAt, now: now)
+        videoView?.setStallHintVisible(show)
+        guard let changedAt = stallState.changedAt, !show else {
+            stallTimer?.invalidate()
+            stallTimer = nil
+            stallDeadline = nil
+            return
+        }
+        let deadline = changedAt.addingTimeInterval(pgmStallHintDelay)
+        if stallTimer != nil, stallDeadline == deadline { return }
+        stallTimer?.invalidate()
+        stallDeadline = deadline
+        let timer = Timer(timeInterval: max(deadline.timeIntervalSince(now), 0.05), repeats: false) { [weak self] _ in
+            MainActor.assumeIsolated { self?.refreshStallHint() }
+        }
+        RunLoop.main.add(timer, forMode: .common)
+        stallTimer = timer
     }
 
     private func toggleInfo(from button: NSButton) {
@@ -486,15 +525,30 @@ private final class PGMPanel: NSPanel {
     override var canBecomeMain: Bool { false }
 }
 
+private func pgmSignature(of buffer: CVPixelBuffer) -> UInt64? {
+    if CVPixelBufferIsPlanar(buffer) { return nil }
+    let width = CVPixelBufferGetWidth(buffer)
+    let height = CVPixelBufferGetHeight(buffer)
+    CVPixelBufferLockBaseAddress(buffer, .readOnly)
+    defer { CVPixelBufferUnlockBaseAddress(buffer, .readOnly) }
+    guard let base = CVPixelBufferGetBaseAddress(buffer) else { return nil }
+    let bytesPerRow = CVPixelBufferGetBytesPerRow(buffer)
+    guard bytesPerRow > 0, height > 0 else { return nil }
+    let bytes = UnsafeRawBufferPointer(start: base, count: bytesPerRow * height)
+    return pgmFrameSignature(bytes: bytes, width: width, height: height, bytesPerRow: bytesPerRow)
+}
+
 private final class PGMFramePump {
     private let lock = NSLock()
     private var latest: CVPixelBuffer?
+    private var latestSignature: UInt64?
     private var scheduled = false
-    var onFrame: ((CVPixelBuffer) -> Void)?
+    var onFrame: ((CVPixelBuffer, UInt64?) -> Void)?
 
-    func push(_ buffer: CVPixelBuffer) {
+    func push(_ buffer: CVPixelBuffer, signature: UInt64?) {
         lock.lock()
         latest = buffer
+        latestSignature = signature
         let needsSchedule = !scheduled
         scheduled = true
         lock.unlock()
@@ -503,11 +557,13 @@ private final class PGMFramePump {
             guard let self else { return }
             self.lock.lock()
             let frame = self.latest
+            let signature = self.latestSignature
             self.latest = nil
+            self.latestSignature = nil
             self.scheduled = false
             self.lock.unlock()
             if let frame {
-                MainActor.assumeIsolated { self.onFrame?(frame) }
+                MainActor.assumeIsolated { self.onFrame?(frame, signature) }
             }
         }
     }
@@ -532,9 +588,16 @@ private final class PGMStreamOutput: NSObject, SCStreamOutput, SCStreamDelegate 
     }
 }
 
+private final class PGMPassThroughLabel: NSTextField {
+    override func hitTest(_ point: NSPoint) -> NSView? { nil }
+    override var acceptsFirstResponder: Bool { false }
+    override var canBecomeKeyView: Bool { false }
+}
+
 private final class PGMVideoView: NSView {
     let imageLayer = CALayer()
     let infoButton = NSButton()
+    let stallHint = PGMPassThroughLabel(labelWithString: "")
     var mode: PGMFitMode = .fit
     var pixelSize: CGSize = .zero
     var pan: CGPoint = .zero
@@ -565,6 +628,20 @@ private final class PGMVideoView: NSView {
         infoButton.target = self
         infoButton.action = #selector(showInfo)
         addSubview(infoButton)
+        stallHint.stringValue = localizedText("The picture stopped.")
+        stallHint.font = .systemFont(ofSize: 12, weight: .medium)
+        stallHint.textColor = .white
+        stallHint.alignment = .center
+        stallHint.isBezeled = false
+        stallHint.isEditable = false
+        stallHint.isSelectable = false
+        stallHint.drawsBackground = true
+        stallHint.backgroundColor = NSColor.black.withAlphaComponent(0.62)
+        stallHint.wantsLayer = true
+        stallHint.layer?.cornerRadius = 4
+        stallHint.layer?.masksToBounds = true
+        stallHint.isHidden = true
+        addSubview(stallHint)
     }
 
     required init?(coder: NSCoder) { nil }
@@ -601,6 +678,22 @@ private final class PGMVideoView: NSView {
         CATransaction.commit()
         let side: CGFloat = 28
         infoButton.frame = CGRect(x: bounds.width - side - 12, y: bounds.height - side - 12, width: side, height: side)
+        stallHint.sizeToFit()
+        let hintWidth = stallHint.bounds.width + 16
+        let hintHeight = max(stallHint.bounds.height + 6, 22)
+        stallHint.frame = CGRect(x: 12, y: 12, width: hintWidth, height: hintHeight)
+    }
+
+    func setStallHintVisible(_ visible: Bool) {
+        guard stallHint.isHidden == visible else { return }
+        stallHint.isHidden = !visible
+        if visible { layoutVideo() }
+    }
+
+    override func hitTest(_ point: NSPoint) -> NSView? {
+        let hit = super.hitTest(point)
+        if hit === stallHint { return self }
+        return hit
     }
 
     override func mouseDown(with event: NSEvent) {

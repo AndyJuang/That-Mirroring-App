@@ -35,6 +35,7 @@
 "Fit to Screen" = "Fit to Screen";
 "%d × %d" = "%d × %d";
 "No picture yet." = "No picture yet.";
+"The picture stopped." = "The picture stopped.";
 "Waiting for the Thatcaster PGM window." = "Waiting for the Thatcaster PGM window.";
 "Allow screen recording in System Settings, then show the monitor again." = "Allow screen recording in System Settings, then show the monitor again.";
 "Press 1 for native pixels. Press F to fit the screen. Drag to pan when the picture is larger than the screen. Press Esc to close." = "Press 1 for native pixels. Press F to fit the screen. Drag to pan when the picture is larger than the screen. Press Esc to close.";

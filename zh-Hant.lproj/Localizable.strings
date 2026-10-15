@@ -35,6 +35,7 @@
 "Fit to Screen" = "縮放全畫面";
 "%d × %d" = "%d × %d";
 "No picture yet." = "尚未收到畫面。";
+"The picture stopped." = "畫面停住了。";
 "Waiting for the Thatcaster PGM window." = "尚未找到 Thatcaster 的 PGM 監看視窗。";
 "Allow screen recording in System Settings, then show the monitor again." = "請到系統設定允許螢幕錄製，再打開監看。";
 "Press 1 for native pixels. Press F to fit the screen. Drag to pan when the picture is larger than the screen. Press Esc to close." = "按 1 顯示原始像素。按 F 縮放成全畫面。畫面比螢幕大時，可以拖曳移動。按 Esc 關閉。";

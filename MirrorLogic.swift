@@ -328,3 +328,45 @@ func pgmImageRect(mode: PGMFitMode, pixelSize: CGSize, viewSize: CGSize, backing
         return CGRect(origin: origin, size: size)
     }
 }
+
+// 來源超過這段時間沒有新內容，監看視窗才顯示停住提示。時間由呼叫端傳入。
+let pgmStallHintDelay: TimeInterval = 2
+
+struct PGMStallState: Equatable {
+    var signature: UInt64?
+    var changedAt: Date?
+}
+
+// changedAt 是最近一次內容有變、或讀不到簽章的時刻。沒有影格時不顯示。
+func pgmShowsStallHint(changedAt: Date?, now: Date, delay: TimeInterval = pgmStallHintDelay) -> Bool {
+    guard let changedAt else { return false }
+    return now.timeIntervalSince(changedAt) > delay
+}
+
+// 簽章相同代表這張畫面沒變，時鐘留在原處。簽章是 nil 代表讀不到像素，仍算有新影格。
+func pgmNoteContent(signature: UInt64?, state: PGMStallState, now: Date) -> PGMStallState {
+    guard let signature else { return PGMStallState(signature: nil, changedAt: now) }
+    if state.signature == signature, state.changedAt != nil { return state }
+    return PGMStallState(signature: signature, changedAt: now)
+}
+
+// BGRA 影格的內容簽章。列尾填補不計。寬高或緩衝不足時沒有簽章。
+func pgmFrameSignature(bytes: UnsafeRawBufferPointer, width: Int, height: Int, bytesPerRow: Int) -> UInt64? {
+    guard width > 0, height > 0, bytesPerRow >= width * 4 else { return nil }
+    let needed = (height - 1) * bytesPerRow + width * 4
+    guard bytes.count >= needed, let base = bytes.baseAddress else { return nil }
+    var hash: UInt64 = 14695981039346656037
+    hash ^= UInt64(width)
+    hash &*= 1099511628211
+    hash ^= UInt64(height)
+    hash &*= 1099511628211
+    for y in 0..<height {
+        let row = base.advanced(by: y * bytesPerRow)
+        for x in 0..<width {
+            let pixel = row.advanced(by: x * 4).loadUnaligned(as: UInt32.self) & 0x00ff_ffff
+            hash ^= UInt64(pixel)
+            hash &*= 1099511628211
+        }
+    }
+    return hash
+}

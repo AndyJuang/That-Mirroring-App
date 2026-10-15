@@ -1,5 +1,6 @@
 # That Mirroring — 交接
 
+- 2026-10-16 #12：PGM 監看在來源超過 2 秒沒有新畫面，或影格內容沒有變時，左下角顯示「畫面停住了。」。新的畫面內容出現後提示消失。提示不常駐，也不擋 1、F、Esc。偵測在 `MirrorLogic.swift`，時間由呼叫端傳入。`scripts/test.sh` 132 assertions。xcodebuild（macOS、arm64、macOS 14）通過，產物在系統暫存。沒有開 App，沒有安裝。沒有自動重新擷取。不要合併 PR #13。
 - 2026-10-15 #12：PGM 監看在工作區 `ThatMirror-wt-pgm-monitor`，分支 `feat/pgm-monitor`，提交 `bda5c43`。PR https://github.com/AndyJuang/That-Mirroring-App/pull/13 ，目標 `feat/i18n`，未合併。來源是 ScreenCaptureKit 擷取標題「Thatcaster — PGM 監看」與「Thatcaster — Program」，畫在一般 CALayer。不採用本機串流，也不採用 Syphon。手機投影的擷取沒有改。`scripts/test.sh` 117 assertions。xcodebuild 通過。沒有開 GUI，沒有安裝。不要合併 PR #13。實機的外接螢幕與延遲還沒看過。
 - i18n 工作區是 `ThatMirror-wt-i18n`，分支 `feat/i18n`，基底是 `feat/that-mirroring-1.4`（PR #4，1.4.0／build 8）。介面語系見下方 2026-10-13 決策。1.4 進度與實機 DEFERRED 仍在 `docs/PROGRESS_1.4.md`。自動化證據：`GATES.md`。
 - 1.4 原工作區是 `ThatMirror-wt-dev`，基線 main `df9f42d`（1.3.3）。

@@ -206,4 +206,33 @@ expect(pgmImageRect(mode: .native, pixelSize: CGSize(width: 0, height: 0), viewS
 let captured = pgmCapturePixelSize(windowPoints: CGSize(width: 1280.2, height: 720), scale: 2)
 expect(captured == CGSize(width: 2560, height: 1440), "capture size is the window pixel size")
 expect(pgmCapturePixelSize(windowPoints: CGSize(width: 101, height: 51), scale: 1) == CGSize(width: 102, height: 52), "capture size is even")
+
+let stallStart = Date(timeIntervalSince1970: 1_700_000_000)
+expect(!pgmShowsStallHint(changedAt: nil, now: stallStart), "stall hint waits until a frame arrives")
+var stall = pgmNoteContent(signature: 11, state: PGMStallState(), now: stallStart)
+expect(stall.signature == 11 && stall.changedAt == stallStart, "first frame starts the stall clock")
+expect(!pgmShowsStallHint(changedAt: stall.changedAt, now: stallStart.addingTimeInterval(pgmStallHintDelay)), "two seconds is not yet a stall")
+expect(pgmShowsStallHint(changedAt: stall.changedAt, now: stallStart.addingTimeInterval(pgmStallHintDelay + 0.001)), "stall hint appears after two seconds")
+expect(pgmShowsStallHint(changedAt: stallStart, now: stallStart.addingTimeInterval(0.5), delay: 0.4), "stall check accepts an injected time and delay")
+let stallHeld = pgmNoteContent(signature: 11, state: stall, now: stallStart.addingTimeInterval(5))
+expect(stallHeld == stall, "unchanged content keeps the same clock")
+expect(pgmShowsStallHint(changedAt: stallHeld.changedAt, now: stallStart.addingTimeInterval(5)), "unchanged frames stay stalled")
+let stallMoved = pgmNoteContent(signature: 12, state: stallHeld, now: stallStart.addingTimeInterval(5))
+expect(stallMoved.changedAt == stallStart.addingTimeInterval(5) && stallMoved.signature == 12, "new content restarts the clock")
+expect(!pgmShowsStallHint(changedAt: stallMoved.changedAt, now: stallStart.addingTimeInterval(5)), "new content hides the stall hint")
+let stallUnread = pgmNoteContent(signature: nil, state: stallMoved, now: stallStart.addingTimeInterval(6))
+expect(stallUnread.signature == nil && stallUnread.changedAt == stallStart.addingTimeInterval(6), "unreadable frame still counts as a new frame")
+func pgmTestSignature(_ bytes: [UInt8], width: Int, height: Int, bytesPerRow: Int) -> UInt64? {
+    bytes.withUnsafeBytes { pgmFrameSignature(bytes: $0, width: width, height: height, bytesPerRow: bytesPerRow) }
+}
+let stallPixels = [UInt8](repeating: 20, count: 12 * 2)
+var stallPixelsChanged = stallPixels
+stallPixelsChanged[4] = 21
+var stallPadding = stallPixels
+stallPadding[8] = 99
+expect(pgmTestSignature(stallPixels, width: 2, height: 2, bytesPerRow: 12) == pgmTestSignature(stallPixels, width: 2, height: 2, bytesPerRow: 12), "same pixels share a signature")
+expect(pgmTestSignature(stallPixels, width: 2, height: 2, bytesPerRow: 12) == pgmTestSignature(stallPadding, width: 2, height: 2, bytesPerRow: 12), "row padding is not part of the picture")
+expect(pgmTestSignature(stallPixels, width: 2, height: 2, bytesPerRow: 12) != pgmTestSignature(stallPixelsChanged, width: 2, height: 2, bytesPerRow: 12), "a changed pixel changes the signature")
+expect(pgmTestSignature(stallPixels, width: 0, height: 2, bytesPerRow: 12) == nil, "empty frame has no signature")
+expect(pgmTestSignature([UInt8](repeating: 1, count: 4), width: 2, height: 2, bytesPerRow: 12) == nil, "short buffer has no signature")
 print("\(assertions) assertions passed")
