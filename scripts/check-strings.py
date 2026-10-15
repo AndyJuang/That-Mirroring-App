@@ -49,7 +49,7 @@ def placeholders(value):
 def source_keys():
     keys = []
     pattern = re.compile(r"\b(?:" + "|".join(ui_calls) + r")\(\s*\"((?:\\.|[^\"\\])*)\"")
-    for name in ("MirrorApp.swift", "MirrorLogic.swift", "AndroidManager.swift"):
+    for name in ("MirrorApp.swift", "MirrorLogic.swift", "AndroidManager.swift", "PGMMonitor.swift"):
         text = (root / name).read_text(encoding="utf-8")
         keys.extend(unescape(item) for item in pattern.findall(text))
         if name == "MirrorApp.swift":
@@ -98,7 +98,7 @@ def main():
     if plist.get("CFBundleLocalizations") != ["en", "zh-Hant"]:
         raise SystemExit("CFBundleLocalizations must be en, zh-Hant")
     info_en = loaded["InfoPlist.strings"][0]
-    for key in ("NSCameraUsageDescription", "NSMicrophoneUsageDescription"):
+    for key in ("NSCameraUsageDescription", "NSMicrophoneUsageDescription", "NSScreenCaptureUsageDescription"):
         if plist.get(key) != info_en.get(key):
             raise SystemExit(f"Info.plist {key} does not match en InfoPlist.strings")
 

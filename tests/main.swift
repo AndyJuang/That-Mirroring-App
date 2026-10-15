@@ -151,4 +151,59 @@ let boundedQuery = try queryTool(executable: URL(fileURLWithPath: "/bin/sleep"),
 expect(boundedQuery.timedOut && boundedQuery.exitStatus != 0, "query timeout closes only owned process")
 let noisyQuery = try queryTool(executable: URL(fileURLWithPath: "/usr/bin/awk"), arguments: ["BEGIN { for(i=0;i<10000;i++) { print \"output fixture\"; print \"error fixture\" > \"/dev/stderr\" } }"], environment: [:])
 expect(!noisyQuery.timedOut && noisyQuery.exitStatus == 0 && noisyQuery.stdout.count > 65536, "both pipes drained beyond buffer size")
+
+let ownBundle = "com.example.iPhoneMirror"
+expect(isThatcasterPGMWindow(title: "Thatcaster — PGM 監看", ownerBundleID: "com.thatcaster.app", ownBundleID: ownBundle), "chinese pgm title")
+expect(isThatcasterPGMWindow(title: "Thatcaster — Program", ownerBundleID: nil, ownBundleID: ownBundle), "english pgm title")
+expect(!isThatcasterPGMWindow(title: "Thatcaster — 投影輸出", ownerBundleID: nil, ownBundleID: ownBundle), "projector is not pgm")
+expect(!isThatcasterPGMWindow(title: "Thatcaster — Projector", ownerBundleID: nil, ownBundleID: ownBundle), "english projector is not pgm")
+expect(!isThatcasterPGMWindow(title: "Thatcaster — Prompter", ownerBundleID: nil, ownBundleID: ownBundle), "prompter is not pgm")
+expect(!isThatcasterPGMWindow(title: "Thatcaster — PGM 監看", ownerBundleID: ownBundle, ownBundleID: ownBundle), "never capture this app")
+expect(!isThatcasterPGMWindow(title: "That Mirroring", ownerBundleID: nil, ownBundleID: ownBundle), "phone window is not pgm")
+expect(!isThatcasterPGMWindow(title: "Thatcaster - PGM 監看", ownerBundleID: nil, ownBundleID: ownBundle), "hyphen is not the pgm title")
+expect(!loadPGMVisible(defaults), "pgm stays hidden until turned on")
+expect(loadPhoneMirrorVisible(defaults), "phone mirror stays visible unless turned off")
+expect(loadPGMFitMode(defaults) == .fit, "fit is the default")
+defaults.set(PGMFitMode.native.rawValue, forKey: pgmFitModeKey)
+expect(loadPGMFitMode(defaults) == .native, "native mode is remembered")
+defaults.set("nope", forKey: pgmFitModeKey)
+expect(loadPGMFitMode(defaults) == .fit, "unknown mode falls back to fit")
+defaults.set(false, forKey: phoneVisibleKey)
+expect(!loadPhoneMirrorVisible(defaults), "phone mirror can be hidden")
+let savedDisplay = DisplayIdentity(uuid: "AAA", name: "Dell", pixelWidth: 1920, pixelHeight: 1080)
+saveDisplayIdentity(savedDisplay, uuidKey: pgmDisplayUUIDKey, nameKey: pgmDisplayNameKey, widthKey: pgmDisplayWidthKey, heightKey: pgmDisplayHeightKey, defaults: defaults)
+expect(loadDisplayIdentity(uuidKey: pgmDisplayUUIDKey, nameKey: pgmDisplayNameKey, widthKey: pgmDisplayWidthKey, heightKey: pgmDisplayHeightKey, defaults: defaults) == savedDisplay, "display identity round trip")
+saveDisplayIdentity(nil, uuidKey: pgmDisplayUUIDKey, nameKey: pgmDisplayNameKey, widthKey: pgmDisplayWidthKey, heightKey: pgmDisplayHeightKey, defaults: defaults)
+expect(loadDisplayIdentity(uuidKey: pgmDisplayUUIDKey, nameKey: pgmDisplayNameKey, widthKey: pgmDisplayWidthKey, heightKey: pgmDisplayHeightKey, defaults: defaults) == nil, "cleared display identity")
+let displays = [
+    DisplayIdentity(uuid: "BBB", name: "Built-in", pixelWidth: 2560, pixelHeight: 1600),
+    DisplayIdentity(uuid: "AAA", name: "Dell", pixelWidth: 1920, pixelHeight: 1080),
+]
+expect(matchDisplay(savedDisplay, among: displays)?.uuid == "AAA", "uuid match")
+let replugged = [DisplayIdentity(uuid: "NEW", name: "Dell", pixelWidth: 1920, pixelHeight: 1080)]
+expect(matchDisplay(savedDisplay, among: replugged)?.uuid == "NEW", "name and size fallback")
+let ambiguous = [
+    DisplayIdentity(uuid: "1", name: "Dell", pixelWidth: 1920, pixelHeight: 1080),
+    DisplayIdentity(uuid: "2", name: "Dell", pixelWidth: 1920, pixelHeight: 1080),
+]
+expect(matchDisplay(DisplayIdentity(uuid: "", name: "Dell", pixelWidth: 1920, pixelHeight: 1080), among: ambiguous) == nil, "ambiguous name is not a guess")
+expect(matchDisplay(DisplayIdentity(uuid: "gone", name: "Dell", pixelWidth: 999, pixelHeight: 999), among: [DisplayIdentity(uuid: "9", name: "Dell", pixelWidth: 1280, pixelHeight: 720)])?.uuid == "9", "unique name fallback")
+expect(matchDisplay(savedDisplay, among: []) == nil, "missing display waits")
+let wide = pgmImageRect(mode: .fit, pixelSize: CGSize(width: 1920, height: 1080), viewSize: CGSize(width: 1000, height: 1000), backingScale: 2, pan: CGPoint(x: 80, y: 40))
+let wideStill = pgmImageRect(mode: .fit, pixelSize: CGSize(width: 1920, height: 1080), viewSize: CGSize(width: 1000, height: 1000), backingScale: 2, pan: .zero)
+expect(wide == wideStill, "fit ignores pan")
+expect(wide.width <= 1000.02 && wide.height <= 1000.02 && wide.minX >= -0.02 && wide.minY >= -0.02, "letterbox stays inside")
+expect(abs(wide.midX - 500) < 0.02 && abs(wide.midY - 500) < 0.02, "letterbox centered")
+expect(abs((wide.width / wide.height) - (1920.0 / 1080.0)) < 0.01, "letterbox keeps aspect")
+let tall = pgmImageRect(mode: .fit, pixelSize: CGSize(width: 1080, height: 1920), viewSize: CGSize(width: 1000, height: 1000), backingScale: 1, pan: .zero)
+expect(abs(tall.height - 1000) < 0.02 && tall.width < 1000 && abs((tall.width / tall.height) - (1080.0 / 1920.0)) < 0.01, "tall letterbox does not crop")
+let nativeSmall = pgmImageRect(mode: .native, pixelSize: CGSize(width: 100, height: 50), viewSize: CGSize(width: 200, height: 200), backingScale: 1, pan: CGPoint(x: 40, y: 40))
+expect(abs(nativeSmall.width - 100) < 0.02 && abs(nativeSmall.height - 50) < 0.02, "native keeps pixel size")
+expect(abs(nativeSmall.midX - 100) < 0.02 && abs(nativeSmall.midY - 100) < 0.02, "smaller native picture stays centered")
+let nativeLarge = pgmImageRect(mode: .native, pixelSize: CGSize(width: 400, height: 200), viewSize: CGSize(width: 100, height: 100), backingScale: 1, pan: CGPoint(x: 1000, y: -1000))
+expect(abs(nativeLarge.minX - 0) < 0.02 && abs(nativeLarge.minY - (-100)) < 0.02, "larger native picture pans inside the edges")
+expect(pgmImageRect(mode: .native, pixelSize: CGSize(width: 0, height: 0), viewSize: CGSize(width: 10, height: 10), backingScale: 2, pan: CGPoint(x: 0, y: 0)) == CGRect(x: 0, y: 0, width: 0, height: 0), "empty frame")
+let captured = pgmCapturePixelSize(windowPoints: CGSize(width: 1280.2, height: 720), scale: 2)
+expect(captured == CGSize(width: 2560, height: 1440), "capture size is the window pixel size")
+expect(pgmCapturePixelSize(windowPoints: CGSize(width: 101, height: 51), scale: 1) == CGSize(width: 102, height: 52), "capture size is even")
 print("\(assertions) assertions passed")

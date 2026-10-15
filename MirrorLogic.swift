@@ -1,4 +1,5 @@
 import Foundation
+import CoreGraphics
 
 // English keys live in Localizable.strings. A missing entry returns the key.
 func localizedText(_ key: String, _ args: CVarArg...) -> String {
@@ -202,4 +203,128 @@ func queryTool(executable: URL, arguments: [String], environment: [String: Strin
     process.waitUntilExit()
     drain(outputFD, retain: true); drain(errorFD, retain: false)
     return ToolQueryResult(stdout: String(decoding: output, as: UTF8.self), exitStatus: process.terminationStatus, timedOut: timedOut)
+}
+
+// Thatcaster 的節目視窗標題。中文介面與英文介面各一個，必須整句相同。
+// 投影輸出、提詞機和這個 App 自己的視窗都不是節目畫面。
+let thatcasterPGMTitles = ["Thatcaster — PGM 監看", "Thatcaster — Program"]
+
+func isThatcasterPGMWindow(title: String, ownerBundleID: String?, ownBundleID: String) -> Bool {
+    guard thatcasterPGMTitles.contains(title) else { return false }
+    if let ownerBundleID, ownerBundleID == ownBundleID { return false }
+    return true
+}
+
+enum PGMFitMode: String, Equatable {
+    case native
+    case fit
+}
+
+let pgmFitModeKey = "PGMFitMode"
+let pgmVisibleKey = "PGMMonitorVisible"
+let pgmDisplayUUIDKey = "PGMDisplayUUID"
+let pgmDisplayNameKey = "PGMDisplayName"
+let pgmDisplayWidthKey = "PGMDisplayPixelWidth"
+let pgmDisplayHeightKey = "PGMDisplayPixelHeight"
+let phoneVisibleKey = "PhoneMirrorVisible"
+let phoneDisplayUUIDKey = "PhoneDisplayUUID"
+let phoneDisplayNameKey = "PhoneDisplayName"
+let phoneDisplayWidthKey = "PhoneDisplayPixelWidth"
+let phoneDisplayHeightKey = "PhoneDisplayPixelHeight"
+
+func loadPGMFitMode(_ defaults: UserDefaults) -> PGMFitMode {
+    PGMFitMode(rawValue: defaults.string(forKey: pgmFitModeKey) ?? "") ?? .fit
+}
+
+func loadPGMVisible(_ defaults: UserDefaults) -> Bool {
+    defaults.object(forKey: pgmVisibleKey) as? Bool ?? false
+}
+
+func loadPhoneMirrorVisible(_ defaults: UserDefaults) -> Bool {
+    defaults.object(forKey: phoneVisibleKey) as? Bool ?? true
+}
+
+struct DisplayIdentity: Equatable {
+    var uuid: String
+    var name: String
+    var pixelWidth: Int
+    var pixelHeight: Int
+
+    var id: String {
+        if !uuid.isEmpty { return uuid }
+        return "\(name) \(pixelWidth)x\(pixelHeight)"
+    }
+}
+
+func saveDisplayIdentity(_ identity: DisplayIdentity?, uuidKey: String, nameKey: String, widthKey: String, heightKey: String, defaults: UserDefaults) {
+    guard let identity else {
+        for key in [uuidKey, nameKey, widthKey, heightKey] { defaults.removeObject(forKey: key) }
+        return
+    }
+    defaults.set(identity.uuid, forKey: uuidKey)
+    defaults.set(identity.name, forKey: nameKey)
+    defaults.set(identity.pixelWidth, forKey: widthKey)
+    defaults.set(identity.pixelHeight, forKey: heightKey)
+}
+
+func loadDisplayIdentity(uuidKey: String, nameKey: String, widthKey: String, heightKey: String, defaults: UserDefaults) -> DisplayIdentity? {
+    guard defaults.object(forKey: uuidKey) != nil || defaults.object(forKey: nameKey) != nil else { return nil }
+    return DisplayIdentity(uuid: defaults.string(forKey: uuidKey) ?? "", name: defaults.string(forKey: nameKey) ?? "",
+                           pixelWidth: defaults.integer(forKey: widthKey), pixelHeight: defaults.integer(forKey: heightKey))
+}
+
+// uuid 先對。拔掉再插上時，系統可能給新的暫用編號，uuid 仍在就用 uuid。
+// uuid 對不到時，名稱加像素尺寸只有一台才算。再不行，名稱只有一台才算。多台同名不猜。
+func matchDisplay(_ saved: DisplayIdentity, among displays: [DisplayIdentity]) -> DisplayIdentity? {
+    if !saved.uuid.isEmpty, let exact = displays.first(where: { $0.uuid == saved.uuid }) { return exact }
+    let sized = displays.filter { $0.name == saved.name && !$0.name.isEmpty && $0.pixelWidth == saved.pixelWidth && $0.pixelHeight == saved.pixelHeight }
+    if sized.count == 1 { return sized[0] }
+    let named = displays.filter { $0.name == saved.name && !$0.name.isEmpty }
+    if named.count == 1 { return named[0] }
+    return nil
+}
+
+func pgmCapturePixelSize(windowPoints: CGSize, scale: CGFloat) -> CGSize {
+    let factor = max(scale, 1)
+    func even(_ value: CGFloat) -> CGFloat {
+        let rounded = max(2, Int(value.rounded()))
+        return CGFloat(rounded % 2 == 0 ? rounded : rounded + 1)
+    }
+    return CGSize(width: even(windowPoints.width * factor), height: even(windowPoints.height * factor))
+}
+
+func pgmNativePointSize(pixelSize: CGSize, backingScale: CGFloat) -> CGSize {
+    let scale = max(backingScale, 1)
+    return CGSize(width: pixelSize.width / scale, height: pixelSize.height / scale)
+}
+
+func pgmClampedPan(content: CGSize, view: CGSize, pan: CGPoint) -> CGPoint {
+    func axis(content: CGFloat, view: CGFloat, proposed: CGFloat) -> CGFloat {
+        let overflow = content - view
+        if overflow <= 0 { return 0 }
+        let limit = overflow / 2
+        return min(max(proposed, -limit), limit)
+    }
+    return CGPoint(x: axis(content: content.width, view: view.width, proposed: pan.x),
+                   y: axis(content: content.height, view: view.height, proposed: pan.y))
+}
+
+// 原點在左下。1:1 是一個來源像素對一個螢幕像素。縮放全畫面用等比例塞進視窗，四周留黑，不裁切。
+func pgmImageRect(mode: PGMFitMode, pixelSize: CGSize, viewSize: CGSize, backingScale: CGFloat, pan: CGPoint) -> CGRect {
+    guard pixelSize.width > 0, pixelSize.height > 0, viewSize.width > 0, viewSize.height > 0 else {
+        return CGRect(x: 0, y: 0, width: 0, height: 0)
+    }
+    let native = pgmNativePointSize(pixelSize: pixelSize, backingScale: backingScale)
+    switch mode {
+    case .native:
+        let clamped = pgmClampedPan(content: native, view: viewSize, pan: pan)
+        let origin = CGPoint(x: (viewSize.width - native.width) / 2 + clamped.x,
+                             y: (viewSize.height - native.height) / 2 + clamped.y)
+        return CGRect(origin: origin, size: native)
+    case .fit:
+        let fittedScale = min(viewSize.width / native.width, viewSize.height / native.height)
+        let size = CGSize(width: native.width * fittedScale, height: native.height * fittedScale)
+        let origin = CGPoint(x: (viewSize.width - size.width) / 2, y: (viewSize.height - size.height) / 2)
+        return CGRect(origin: origin, size: size)
+    }
 }
