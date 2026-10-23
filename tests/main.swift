@@ -82,7 +82,8 @@ expect(localizedText("Android · %@ (%@)", "Pixel", "Connected over USB") == "An
 let resources = URL(fileURLWithPath: "/fixture/That Mirroring.app/Contents/Resources")
 let root = resources.appendingPathComponent("scrcpy")
 let fallback = URL(fileURLWithPath: "/fixture/homebrew")
-let bundledFiles = Set(["scrcpy", "adb", "scrcpy-server"].map { root.appendingPathComponent($0).path })
+let helperScrcpy = "ThatMirroringAndroid.app/Contents/MacOS/scrcpy"
+let bundledFiles = Set([helperScrcpy, "adb", "scrcpy-server"].map { root.appendingPathComponent($0).path })
 let fallbackFiles = Set(["bin/scrcpy", "bin/adb", "share/scrcpy/scrcpy-server"].map { fallback.appendingPathComponent($0).path })
 func resolve(_ files: Set<String>, resources: URL? = resources) -> AndroidTools? {
     resolveAndroidTools(resources: resources, fallback: fallback,
@@ -90,12 +91,14 @@ func resolve(_ files: Set<String>, resources: URL? = resources) -> AndroidTools?
 }
 let tools = resolve(bundledFiles.union(fallbackFiles))!
 expect(!tools.isFallback && tools.directory.path == root.path, "bundle must take precedence")
+expect(tools.scrcpy.path == root.appendingPathComponent(helperScrcpy).path, "bundled scrcpy lives in helper app")
 expect(tools.adb.path == root.appendingPathComponent("adb").path, "bundled adb")
 expect(tools.server.path == root.appendingPathComponent("scrcpy-server").path, "bundled server")
 expect(resolve(fallbackFiles)!.isFallback, "missing bundle fallback")
 expect(resolve(fallbackFiles, resources: nil)!.isFallback, "nil resource URL fallback")
 expect(resolve([]) == nil, "missing tools must fail")
-for missing in ["adb", "scrcpy", "scrcpy-server"] {
+expect(resolve(bundledFiles.subtracting([root.appendingPathComponent(helperScrcpy).path]).union([root.appendingPathComponent("scrcpy").path])) == nil, "old flat scrcpy path must not launch")
+for missing in ["adb", helperScrcpy, "scrcpy-server"] {
     let partial = bundledFiles.subtracting([root.appendingPathComponent(missing).path])
     expect(resolve(partial) == nil, "partial bundle must not launch")
     expect(resolve(partial.union(fallbackFiles))!.isFallback, "partial bundle coherent fallback")
@@ -128,11 +131,12 @@ AndroidWindowOptions().save(to: defaults)
 expect(!AndroidWindowOptions.stored(in: defaults).turnScreenOff, "turning screen off back off is remembered")
 let suspicious = AndroidDevice(serial: "--record=/tmp/file; $(echo bad)", state: "device", model: "Quoted ' phone", isUSB: true)
 expect(scrcpyArguments(device: suspicious, options: options)[0] == "--serial=\(suspicious.serial)", "serial must stay one argument, no shell")
-let env = androidEnvironment(tools: tools, resources: resources, inherited: ["ADB":"wrong", "SCRCPY_SERVER_PATH":"wrong", "ANDROID_SERIAL":"wrong", "DYLD_INSERT_LIBRARIES":"wrong", "ADB_SERVER_SOCKET":"remote", "PATH":"wrong"])
+let env = androidEnvironment(tools: tools, resources: resources, inherited: ["ADB":"wrong", "SCRCPY_SERVER_PATH":"wrong", "ANDROID_SERIAL":"wrong", "DYLD_INSERT_LIBRARIES":"wrong", "ADB_SERVER_SOCKET":"remote", "PATH":"wrong", "SCRCPY_ICON_DIR":"wrong"])
 expect(env["ADB"] == tools.adb.path && env["SCRCPY_SERVER_PATH"] == tools.server.path, "explicit bundle environment")
 expect(env["ANDROID_SERIAL"] == nil && env["ADB_SERVER_SOCKET"] == nil && env["DYLD_INSERT_LIBRARIES"] == nil, "inherited tool overrides removed")
 expect(env["PATH"]!.hasPrefix(root.path + ":"), "bundle path with spaces")
 expect(env["SCRCPY_ICON_PATH"] == root.path, "own icon path")
+expect(env["SCRCPY_ICON_DIR"] == root.path, "scrcpy icon dir matches icon path, inherited value replaced")
 expect(env["THATMIRRORING_PARENT_PID"] == String(ProcessInfo.processInfo.processIdentifier), "parent lifetime binding")
 expect(androidConnectionSteps.components(separatedBy: .newlines).count == 4, "four connection steps")
 
@@ -163,4 +167,21 @@ let boundedQuery = try queryTool(executable: URL(fileURLWithPath: "/bin/sleep"),
 expect(boundedQuery.timedOut && boundedQuery.exitStatus != 0, "query timeout closes only owned process")
 let noisyQuery = try queryTool(executable: URL(fileURLWithPath: "/usr/bin/awk"), arguments: ["BEGIN { for(i=0;i<10000;i++) { print \"output fixture\"; print \"error fixture\" > \"/dev/stderr\" } }"], environment: [:])
 expect(!noisyQuery.timedOut && noisyQuery.exitStatus == 0 && noisyQuery.stdout.count > 65536, "both pipes drained beyond buffer size")
+let phoneOK = AndroidDevice(serial: "A1", state: "device", model: "Pixel", isUSB: true)
+let phoneOther = AndroidDevice(serial: "B2", state: "device", model: "Galaxy", isUSB: true)
+expect(androidMirrorPhase(for: phoneOK, selectedSerial: nil) == .connectedIdle, "authorized unselected device is idle")
+expect(androidMirrorPhase(for: phoneOK, selectedSerial: "A1") == .mirroring, "selected authorized device is mirroring")
+expect(androidMirrorPhase(for: phoneOther, selectedSerial: "A1") == .connectedIdle, "other device stays idle while one mirrors")
+let lostAuth = AndroidDevice(serial: "A1", state: "unauthorized", model: "Pixel", isUSB: true)
+expect(androidMirrorPhase(for: lostAuth, selectedSerial: "A1") == .mirroring, "mirrored device stays stoppable after losing authorization")
+expect(androidDisplayDevices([], selectedSerial: "A1").map(\.serial) == ["A1"], "vanished mirrored device keeps a card")
+expect(androidDisplayDevices([phoneOK], selectedSerial: "A1") == [phoneOK], "present mirrored device is not duplicated")
+expect(androidDisplayDevices([phoneOK], selectedSerial: nil) == [phoneOK], "no selection leaves devices unchanged")
+for state in ["unauthorized", "offline", "no permissions"] {
+    let blocked = AndroidDevice(serial: "A1", state: state, model: "Pixel", isUSB: true)
+    expect(androidMirrorPhase(for: blocked, selectedSerial: "B2") == .notConnected, "\(state) device is not connected")
+}
+expect(androidStepsProminent(devices: []), "setup steps shown with no devices")
+expect(androidStepsProminent(devices: [AndroidDevice(serial: "A1", state: "unauthorized", model: "Pixel", isUSB: true)]), "setup steps shown when none authorized")
+expect(!androidStepsProminent(devices: [phoneOK]), "setup steps collapse when a device is authorized")
 print("\(assertions) assertions passed")

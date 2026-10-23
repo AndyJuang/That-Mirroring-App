@@ -16,8 +16,18 @@ for lang in en zh-Hant; do
 done
 cp AppIcon.icns "$app/Contents/Resources/AppIcon.icns"
 resources="$app/Contents/Resources/scrcpy"
+rm -rf "$resources"
 mkdir -p "$resources"
-cp vendor/scrcpy-macos-aarch64-v4.0/{scrcpy,adb,scrcpy-server,disconnected.png,scrcpy.1} "$resources/"
+cp vendor/scrcpy-macos-aarch64-v4.0/{adb,scrcpy-server,disconnected.png,scrcpy.1} "$resources/"
+helper="$resources/ThatMirroringAndroid.app"
+mkdir -p "$helper/Contents/MacOS" "$helper/Contents/Resources"
+cp vendor/scrcpy-macos-aarch64-v4.0/scrcpy "$helper/Contents/MacOS/scrcpy"
+cp native/AndroidHelper-Info.plist "$helper/Contents/Info.plist"
+for key in CFBundleShortVersionString CFBundleVersion; do
+    /usr/libexec/PlistBuddy -c "Set :$key $(/usr/libexec/PlistBuddy -c "Print :$key" Info.plist)" "$helper/Contents/Info.plist"
+done
+cp AppIcon.icns "$helper/Contents/Resources/AppIcon.icns"
+cp licenses/scrcpy/LICENSE "$helper/Contents/Resources/LICENSE"
 if [[ -d icon/AppIcon.iconset ]]; then
     cp icon/AppIcon.iconset/icon_512x512@2x.png "$resources/scrcpy.png"
 else
@@ -35,6 +45,7 @@ while IFS= read -r -d '' file; do
         codesign --sign - --force "$file"
     fi
 done < <(find "$app/Contents" -type f -print0)
+codesign --sign - --force "$helper"
 codesign --sign - --force "$app"
 codesign --verify --deep --strict "$app"
 lipo "$app/Contents/MacOS/ThatMirroring" -verify_arch arm64

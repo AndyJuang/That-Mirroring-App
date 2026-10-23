@@ -11,7 +11,6 @@
 "%@ (Screen)" = "%@ (Screen)";
 "%@ (Camera)" = "%@ (Camera)";
 "Android · %@ (%@)" = "Android · %@ (%@)";
-"Android · %@" = "Android · %@";
 
 "Highlight" = "Highlight";
 "None (Off)" = "None (Off)";
@@ -32,13 +31,24 @@
 
 "Android over USB" = "Android over USB";
 "Refresh" = "Refresh";
-"Window options apply the next time you connect." = "Window options apply the next time you connect.";
+"Window Options (Applied the Next Time Mirroring Starts)" = "Window Options (Applied the Next Time Mirroring Starts)";
+"Android Devices" = "Android Devices";
+"Connection Guide" = "Connection Guide";
+"Mirror Window Tips" = "Mirror Window Tips";
+"Press F11 or Option-F in the mirror window to toggle full screen." = "Press F11 or Option-F in the mirror window to toggle full screen.";
+"Closing the mirror window or quitting That Mirroring stops mirroring." = "Closing the mirror window or quitting That Mirroring stops mirroring.";
+"Use your Mac mouse and keyboard to control the phone." = "Use your Mac mouse and keyboard to control the phone.";
+"Audio is off by default. Some older phones can't send audio." = "Audio is off by default. Some older phones can't send audio.";
+"No Android device" = "No Android device";
+"Not Connected" = "Not Connected";
+"Connected · Not Mirroring" = "Connected · Not Mirroring";
+"Mirroring" = "Mirroring";
+"Start Mirroring" = "Start Mirroring";
+"Stop Mirroring" = "Stop Mirroring";
 "Keep Window on Top" = "Keep Window on Top";
 "Open in Full Screen" = "Open in Full Screen";
 "Play Android Audio" = "Play Android Audio";
 "Turn Off Phone Screen" = "Turn Off Phone Screen";
-"Use your mouse and keyboard to control the phone." = "Use your mouse and keyboard to control the phone.";
-"In the mirror window, press F11 or Option-F for full screen. Closing the window stops mirroring. Quitting That Mirroring also stops it. Audio is off by default. Some older phones cannot send audio." = "In the mirror window, press F11 or Option-F for full screen. Closing the window stops mirroring. Quitting That Mirroring also stops it. Audio is off by default. Some older phones cannot send audio.";
 "Back to iPhone, iPad, or Capture Card" = "Back to iPhone, iPad, or Capture Card";
 
 "Connected over USB" = "Connected over USB";
@@ -51,14 +61,10 @@
 "Looking for Android devices…" = "Looking for Android devices…";
 "Android tools are missing. Download That Mirroring again." = "Android tools are missing. Download That Mirroring again.";
 "Can't list Android devices. Check the connection, then click Refresh." = "Can't list Android devices. Check the connection, then click Refresh.";
-"Choose an Android device to start." = "Choose an Android device to start.";
-"No authorized USB device. Check the four steps below." = "No authorized USB device. Check the four steps below.";
 "%@ (Using backup tools.)" = "%@ (Using backup tools.)";
 "Can't start the Android tools. Download That Mirroring again." = "Can't start the Android tools. Download That Mirroring again.";
 "%@: %@. Follow the steps below, then click Refresh." = "%@: %@. Follow the steps below, then click Refresh.";
-"Android mirroring is off." = "Android mirroring is off.";
 "Allow USB debugging on the phone. Unlock it and allow this Mac." = "Allow USB debugging on the phone. Unlock it and allow this Mac.";
 "Android mirroring stopped. Check the cable, USB debugging, and permission, then connect again." = "Android mirroring stopped. Check the cable, USB debugging, and permission, then connect again.";
-"%@ is open in That Mirroring. Use the Mac mouse and keyboard." = "%@ is open in That Mirroring. Use the Mac mouse and keyboard.";
 "Can't start Android mirroring. Download That Mirroring again." = "Can't start Android mirroring. Download That Mirroring again.";
 "1) Use a data cable, not a charge-only cable.\n2) On the phone, open Settings > About phone and tap Build number 7 times.\n3) Open Settings > System > Developer options and turn on USB debugging.\n4) When asked, select Always allow from this computer, then tap Allow." = "1) Use a data cable, not a charge-only cable.\n2) On the phone, open Settings > About phone and tap Build number 7 times.\n3) Open Settings > System > Developer options and turn on USB debugging.\n4) When asked, select Always allow from this computer, then tap Allow.";

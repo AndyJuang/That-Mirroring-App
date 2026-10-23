@@ -66,6 +66,22 @@ struct AndroidDevice: Identifiable, Equatable {
     }
 }
 
+enum AndroidMirrorPhase: Equatable { case notConnected, connectedIdle, mirroring }
+
+func androidMirrorPhase(for device: AndroidDevice, selectedSerial: String?) -> AndroidMirrorPhase {
+    if selectedSerial == device.serial { return .mirroring }
+    return device.isAuthorized ? .connectedIdle : .notConnected
+}
+
+func androidDisplayDevices(_ devices: [AndroidDevice], selectedSerial: String?) -> [AndroidDevice] {
+    guard let serial = selectedSerial, !devices.contains(where: { $0.serial == serial }) else { return devices }
+    return devices + [AndroidDevice(serial: serial, state: "device", model: "Android", isUSB: true)]
+}
+
+func androidStepsProminent(devices: [AndroidDevice]) -> Bool {
+    !devices.contains(where: \.isAuthorized)
+}
+
 func parseADBDevices(_ output: String) -> [AndroidDevice] {
     var seen = Set<String>()
     return output.components(separatedBy: .newlines).compactMap { line in
@@ -101,7 +117,8 @@ func resolveAndroidTools(resources: URL?, fallback: URL = URL(fileURLWithPath: "
                          executable: (URL) -> Bool = { FileManager.default.isExecutableFile(atPath: $0.path) },
                          readable: (URL) -> Bool = { FileManager.default.isReadableFile(atPath: $0.path) }) -> AndroidTools? {
     if let directory = resources?.appendingPathComponent("scrcpy", isDirectory: true) {
-        let scrcpy = directory.appendingPathComponent("scrcpy"), adb = directory.appendingPathComponent("adb")
+        let scrcpy = directory.appendingPathComponent("ThatMirroringAndroid.app/Contents/MacOS/scrcpy")
+        let adb = directory.appendingPathComponent("adb")
         let server = directory.appendingPathComponent("scrcpy-server")
         if executable(scrcpy), executable(adb), readable(server) {
             return AndroidTools(directory: directory, scrcpy: scrcpy, adb: adb, server: server, isFallback: false)
@@ -146,7 +163,7 @@ func scrcpyArguments(device: AndroidDevice, options: AndroidWindowOptions) -> [S
 func androidEnvironment(tools: AndroidTools, resources: URL?, inherited: [String: String] = ProcessInfo.processInfo.environment) -> [String: String] {
     var env = inherited
     // Explicit local tool paths, independent of shell setup or inherited overrides.
-    for key in ["ANDROID_SERIAL", "ADB_SERVER_SOCKET", "ANDROID_ADB_SERVER_ADDRESS", "ANDROID_ADB_SERVER_PORT", "DYLD_INSERT_LIBRARIES"] {
+    for key in ["ANDROID_SERIAL", "ADB_SERVER_SOCKET", "ANDROID_ADB_SERVER_ADDRESS", "ANDROID_ADB_SERVER_PORT", "DYLD_INSERT_LIBRARIES", "SCRCPY_ICON_DIR"] {
         env.removeValue(forKey: key)
     }
     env["ADB"] = tools.adb.path
@@ -155,7 +172,10 @@ func androidEnvironment(tools: AndroidTools, resources: URL?, inherited: [String
     env["SDL_APP_NAME"] = "That Mirroring"
     env["SDL_VIDEO_MAC_FULLSCREEN_SPACES"] = "1"
     if let resources = resources {
-        env["SCRCPY_ICON_PATH"] = resources.appendingPathComponent("scrcpy").path
+        let scrcpyResources = resources.appendingPathComponent("scrcpy").path
+        env["SCRCPY_ICON_PATH"] = scrcpyResources
+        // scrcpy's own icon/disconnected.png lookup; its binary now lives inside the helper app.
+        env["SCRCPY_ICON_DIR"] = scrcpyResources
         let style = resources.appendingPathComponent("scrcpy/ThatMirroringWindow.dylib")
         if FileManager.default.isReadableFile(atPath: style.path) { env["DYLD_INSERT_LIBRARIES"] = style.path }
     }
