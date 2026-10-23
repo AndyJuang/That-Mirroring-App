@@ -10,6 +10,7 @@ struct ThatMirroringApp: App {
     init() { migrateLegacyRecordingSettings(UserDefaults.standard) }
     @StateObject private var captureManager = CaptureManager()
     @StateObject private var androidManager = AndroidManager()
+    @StateObject private var pgmMonitor = PGMMonitorController()
     @AppStorage("SelectedAnimation") private var selectedAnimation: AnimationType = .cursor
     @AppStorage("AutoCropBlackBars") private var autoCropBlackBars: Bool = true
     @State private var appLanguage = AppLanguageSetting.stored()
@@ -123,6 +124,38 @@ struct ThatMirroringApp: App {
                 Button("Reopen the app to apply.") {}
                     .disabled(true)
             }
+
+            CommandMenu("Display") {
+                Button(action: { pgmMonitor.togglePGM() }) {
+                    Text("Show PGM Monitor")
+                    if pgmMonitor.pgmVisible { Image(systemName: "checkmark") }
+                }
+                Button(action: { pgmMonitor.togglePhone() }) {
+                    Text("Show Phone Mirror")
+                    if pgmMonitor.phoneVisible { Image(systemName: "checkmark") }
+                }
+                Divider()
+                Menu {
+                    ForEach(pgmMonitor.screens) { item in
+                        Button(action: { pgmMonitor.choosePGM(id: item.id) }) {
+                            Text(verbatim: item.title)
+                            if pgmMonitor.pgmScreenID == item.identity.id { Image(systemName: "checkmark") }
+                        }
+                    }
+                } label: {
+                    Text("PGM Screen")
+                }
+                Menu {
+                    ForEach(pgmMonitor.screens) { item in
+                        Button(action: { pgmMonitor.choosePhone(id: item.id) }) {
+                            Text(verbatim: item.title)
+                            if pgmMonitor.phoneScreenID == item.identity.id { Image(systemName: "checkmark") }
+                        }
+                    }
+                } label: {
+                    Text("Phone Screen")
+                }
+            }
         }
     }
 }
@@ -206,7 +239,7 @@ struct ContentView: View {
             if androidManager.showSetup {
                 AndroidSetupView(manager: androidManager)
             } else if captureManager.hasDevice {
-                PreviewView(session: captureManager.session, geometry: captureManager.geometry) { location in
+                PreviewView(session: captureManager.session, geometry: captureManager.geometry, attach: captureManager.attachPreview, frames: captureManager.frameSink) { location in
                     guard selectedAnimation != .none else { return }
                     let tap = TapData(location: location)
                     taps.append(tap)
@@ -387,9 +420,14 @@ class CaptureManager: NSObject, ObservableObject, AVCaptureVideoDataOutputSample
         // 重新連接時給 CoreMediaIO 0.5 秒讓裝置完整出現在 discovery session，
         // 否則 setupSession() 會找不到裝置而把畫面變成黑底。
         let delay: TimeInterval = notification.name == AVCaptureDevice.wasConnectedNotification ? 0.5 : 0.0
-        DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
-            self.availableDevices = CaptureManager.getAllDevices(videoSession: self.videoDiscoverySession, muxedSession: self.muxedDiscoverySession)
-            self.setupSession()
+        // 通知可能來自任意執行緒；延遲與裝置列舉排在 sessionQueue 上，
+        // 讓它和進行中的設定／startRunning 依序執行，再回 main 更新畫面狀態並排入新的設定。
+        sessionQueue.asyncAfter(deadline: .now() + delay) {
+            let devices = CaptureManager.getAllDevices(videoSession: self.videoDiscoverySession, muxedSession: self.muxedDiscoverySession)
+            DispatchQueue.main.async {
+                self.availableDevices = devices
+                self.setupSession()
+            }
         }
     }
     
@@ -402,12 +440,14 @@ class CaptureManager: NSObject, ObservableObject, AVCaptureVideoDataOutputSample
         return audioDevices.first { $0.localizedName == videoDevice.localizedName }
     }
 
+    // 只在 main 上呼叫：擷取 main 上的狀態，實際設定排到 sessionQueue。
     func setupSession() {
+        dispatchPrecondition(condition: .onQueue(.main))
         if isSuspendedForAndroid {
             sessionGeneration += 1
             audioSignalBroken = false
             hasDevice = false
-            sessionQueue.async { if self.session.isRunning { self.session.stopRunning() } }
+            sessionQueue.async { self.stopSessionOnQueue() }
             return
         }
         // 第一次開啟「播放裝置聲音」時先要麥克風權限，拿到結果後再重新設定。
@@ -434,6 +474,7 @@ class CaptureManager: NSObject, ObservableObject, AVCaptureVideoDataOutputSample
 
     // 只在 sessionQueue 上呼叫。
     private func configureSession(devices: [AVCaptureDevice], selectedID: String?, playAudio: Bool, generation: Int) -> Bool {
+        dispatchPrecondition(condition: .onQueue(sessionQueue))
         var hasDevice = false
         session.beginConfiguration()
         
@@ -514,14 +555,41 @@ class CaptureManager: NSObject, ObservableObject, AVCaptureVideoDataOutputSample
         session.sessionPreset = .high
         session.commitConfiguration()
 
-        // startRunning/stopRunning 都放到背景執行，避免快速 disconnect/reconnect 時
-        // 主執行緒的呼叫順序與背景任務交叉導致 session 應啟動卻已被停止。
+        // commit 之後才 start；start/stop 只在 sessionQueue 上。
         if hasDevice {
-            if !session.isRunning { session.startRunning() }
+            startSessionOnQueue()
         } else {
-            if session.isRunning { session.stopRunning() }
+            stopSessionOnQueue()
         }
         return hasDevice
+    }
+
+    // 視窗畫面改由 videoDataOutput 的影格畫在一般 CALayer 上（見 FrameSink）。
+    // AVCaptureVideoPreviewLayer 的影像走獨立 surface，Google Meet 等「分享單一視窗」擷取不到，只會看到黑畫面。
+    let frameSink = FrameSink()
+
+    // 把 preview layer 接上 session 也會改 session（addVideoPreviewLayer → commitConfiguration）。
+    // 1.4.0 (8) 的閃退正是 main 在 makeNSView 接 preview layer 時，另一條 queue 正在 startRunning。
+    // 這裡先排進 sessionQueue，再同步到 main 設定 layer.session，讓它與設定／start／stop 依序執行。
+    func attachPreview(_ layer: AVCaptureVideoPreviewLayer) {
+        sessionQueue.async {
+            DispatchQueue.main.sync {
+                if layer.session !== self.session { layer.session = self.session }
+            }
+        }
+    }
+
+    // startRunning 是同步呼叫；因為只在 serial sessionQueue 上執行並先檢查 isRunning，不會重複 start。
+    private func startSessionOnQueue() {
+        dispatchPrecondition(condition: .onQueue(sessionQueue))
+        guard !session.isRunning else { return }
+        session.startRunning()
+    }
+
+    private func stopSessionOnQueue() {
+        dispatchPrecondition(condition: .onQueue(sessionQueue))
+        guard session.isRunning else { return }
+        session.stopRunning()
     }
     
     func captureOutput(_ output: AVCaptureOutput, didOutput sampleBuffer: CMSampleBuffer, from connection: AVCaptureConnection) {
@@ -530,6 +598,7 @@ class CaptureManager: NSObject, ObservableObject, AVCaptureVideoDataOutputSample
             return
         }
         guard let pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else { return }
+        frameSink.push(pixelBuffer)
         let rawSize = CGSize(width: CVPixelBufferGetWidth(pixelBuffer), height: CVPixelBufferGetHeight(pixelBuffer))
         let now = CACurrentMediaTime()
 
@@ -815,8 +884,38 @@ struct BlackBarDetector {
 // 預覽層放在可裁切的容器裡：容器 masksToBounds，預覽層放大到「內容」對齊容器並置中，黑邊就落在容器外。
 // 視窗比例與內容相差 3% 以內時填滿容器（最多裁掉約 1.5% 的邊緣）；相差更多時（例如全螢幕）等比塞入，只補黑邊。
 // 預覽層的 frame 在 layoutSublayers 隨容器 bounds 更新，避免 frame 為 zero 導致黑畫面。
+final class FrameSink {
+    // 把 captureQueue 收到的最新影格交給 main 上的 CALayer 顯示；main 來不及時只保留最新一張，不堆積。
+    private let lock = NSLock()
+    private var latest: CVPixelBuffer?
+    private var scheduled = false
+    private weak var target: CroppingPreviewLayer?
+
+    // 只在 main 上呼叫。
+    func setTarget(_ layer: CroppingPreviewLayer) { target = layer }
+
+    func push(_ buffer: CVPixelBuffer) {
+        lock.lock()
+        latest = buffer
+        let needsSchedule = !scheduled
+        scheduled = true
+        lock.unlock()
+        guard needsSchedule else { return }
+        DispatchQueue.main.async {
+            self.lock.lock()
+            let frame = self.latest
+            self.latest = nil
+            self.scheduled = false
+            self.lock.unlock()
+            if let frame { self.target?.show(frame) }
+        }
+    }
+}
+
 class CroppingPreviewLayer: CALayer {
     private(set) var preview = AVCaptureVideoPreviewLayer()
+    // 實際顯示的影像層：內容是 IOSurface，視窗擷取（Meet／Zoom 分享視窗）看得到。
+    private(set) var frameLayer = CALayer()
     var geometry = VideoGeometry() {
         didSet {
             guard geometry != oldValue else { return }
@@ -834,7 +933,22 @@ class CroppingPreviewLayer: CALayer {
         backgroundColor = NSColor.black.cgColor
         preview.videoGravity = .resize
         preview.backgroundColor = NSColor.black.cgColor
+        // preview 保留接在 session 上（不改 session 設定），但不顯示；畫面由 frameLayer 呈現。
+        preview.isHidden = true
         addSublayer(preview)
+        frameLayer.backgroundColor = NSColor.black.cgColor
+        frameLayer.contentsGravity = .resize
+        frameLayer.actions = ["contents": NSNull()]
+        addSublayer(frameLayer)
+    }
+
+    // 只在 main 上呼叫。
+    func show(_ buffer: CVPixelBuffer) {
+        guard let surface = CVPixelBufferGetIOSurface(buffer)?.takeUnretainedValue() else { return }
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        frameLayer.contents = surface
+        CATransaction.commit()
     }
 
     // 放大：畫面座標 p 顯示在 p * zoom + zoomOffset（以容器左下角為原點）。
@@ -852,6 +966,7 @@ class CroppingPreviewLayer: CALayer {
         super.init(layer: layer)
         if let other = layer as? CroppingPreviewLayer {
             preview = other.preview
+            frameLayer = other.frameLayer
             geometry = other.geometry
             zoom = other.zoom
             zoomOffset = other.zoomOffset
@@ -926,10 +1041,14 @@ class CroppingPreviewLayer: CALayer {
             preview.videoGravity = .resize
             preview.frame = CGRect(x: base.minX * zoom + zoomOffset.x, y: base.minY * zoom + zoomOffset.y,
                                    width: base.width * zoom, height: base.height * zoom)
+            frameLayer.contentsGravity = .resize
+            frameLayer.frame = preview.frame
         } else {
             // 還不知道影像尺寸時，整張等比顯示。
             preview.videoGravity = .resizeAspect
             preview.frame = bounds
+            frameLayer.contentsGravity = .resizeAspect
+            frameLayer.frame = bounds
         }
         CATransaction.commit()
     }
@@ -1167,18 +1286,22 @@ class PreviewNSView: NSView {
 struct PreviewView: NSViewRepresentable {
     let session: AVCaptureSession
     let geometry: VideoGeometry
+    // 由 CaptureManager 在 sessionQueue 的順序內接上 session，見 attachPreview。
+    let attach: (AVCaptureVideoPreviewLayer) -> Void
+    let frames: FrameSink
     let onTap: (CGPoint) -> Void
 
     func makeNSView(context: Context) -> PreviewNSView {
         let view = PreviewNSView()
-        view.previewLayer?.session = session
+        if let layer = view.previewLayer { attach(layer) }
+        if let container = view.layer as? CroppingPreviewLayer { frames.setTarget(container) }
         view.onTap = onTap
         return view
     }
 
     func updateNSView(_ nsView: PreviewNSView, context: Context) {
-        if nsView.previewLayer?.session !== session {
-            nsView.previewLayer?.session = session
+        if let layer = nsView.previewLayer, layer.session !== session {
+            attach(layer)
         }
         (nsView.layer as? CroppingPreviewLayer)?.geometry = geometry
         nsView.onTap = onTap
