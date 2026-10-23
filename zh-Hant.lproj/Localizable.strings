@@ -61,14 +61,10 @@
 "Looking for Android devices…" = "正在尋找 Android…";
 "Android tools are missing. Download That Mirroring again." = "找不到 Android 工具。請重新下載 That Mirroring。";
 "Can't list Android devices. Check the connection, then click Refresh." = "無法列出 Android。請確認連線後按「重新整理」。";
-"Choose an Android device to start." = "請選擇要鏡像的 Android。";
-"No authorized USB device. Check the four steps below." = "找不到已授權的 USB 裝置。請確認下方四個步驟。";
 "%@ (Using backup tools.)" = "%@（目前使用備用工具。）";
 "Can't start the Android tools. Download That Mirroring again." = "無法啟動 Android 工具。請重新下載 That Mirroring。";
 "%@: %@. Follow the steps below, then click Refresh." = "%@：%@。請依下方步驟操作，再按「重新整理」。";
-"Android mirroring is off." = "Android 鏡像已關閉。";
 "Allow USB debugging on the phone. Unlock it and allow this Mac." = "請在手機上允許 USB 偵錯。解鎖後允許這台 Mac。";
 "Android mirroring stopped. Check the cable, USB debugging, and permission, then connect again." = "Android 鏡像已中斷。請確認傳輸線、USB 偵錯與授權後再連線。";
-"%@ is open in That Mirroring. Use the Mac mouse and keyboard." = "%@ 已在 That Mirroring 開啟。可用 Mac 的滑鼠與鍵盤操作。";
 "Can't start Android mirroring. Download That Mirroring again." = "無法開始 Android 鏡像。請重新下載 That Mirroring。";
 "1) Use a data cable, not a charge-only cable.\n2) On the phone, open Settings > About phone and tap Build number 7 times.\n3) Open Settings > System > Developer options and turn on USB debugging.\n4) When asked, select Always allow from this computer, then tap Allow." = "1) 用可傳資料的傳輸線，不要用只能充電的線。\n2) 手機開啟「設定」>「關於手機」，連點「組建編號」7 次。\n3) 到「設定」>「系統」>「開發人員選項」，開啟「USB 偵錯」。\n4) 出現詢問時，勾選「一律允許使用這台電腦」，再按允許。";

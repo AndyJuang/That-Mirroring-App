@@ -69,8 +69,13 @@ struct AndroidDevice: Identifiable, Equatable {
 enum AndroidMirrorPhase: Equatable { case notConnected, connectedIdle, mirroring }
 
 func androidMirrorPhase(for device: AndroidDevice, selectedSerial: String?) -> AndroidMirrorPhase {
-    guard device.isAuthorized else { return .notConnected }
-    return selectedSerial == device.serial ? .mirroring : .connectedIdle
+    if selectedSerial == device.serial { return .mirroring }
+    return device.isAuthorized ? .connectedIdle : .notConnected
+}
+
+func androidDisplayDevices(_ devices: [AndroidDevice], selectedSerial: String?) -> [AndroidDevice] {
+    guard let serial = selectedSerial, !devices.contains(where: { $0.serial == serial }) else { return devices }
+    return devices + [AndroidDevice(serial: serial, state: "device", model: "Android", isUSB: true)]
 }
 
 func androidStepsProminent(devices: [AndroidDevice]) -> Bool {

@@ -172,9 +172,14 @@ let phoneOther = AndroidDevice(serial: "B2", state: "device", model: "Galaxy", i
 expect(androidMirrorPhase(for: phoneOK, selectedSerial: nil) == .connectedIdle, "authorized unselected device is idle")
 expect(androidMirrorPhase(for: phoneOK, selectedSerial: "A1") == .mirroring, "selected authorized device is mirroring")
 expect(androidMirrorPhase(for: phoneOther, selectedSerial: "A1") == .connectedIdle, "other device stays idle while one mirrors")
+let lostAuth = AndroidDevice(serial: "A1", state: "unauthorized", model: "Pixel", isUSB: true)
+expect(androidMirrorPhase(for: lostAuth, selectedSerial: "A1") == .mirroring, "mirrored device stays stoppable after losing authorization")
+expect(androidDisplayDevices([], selectedSerial: "A1").map(\.serial) == ["A1"], "vanished mirrored device keeps a card")
+expect(androidDisplayDevices([phoneOK], selectedSerial: "A1") == [phoneOK], "present mirrored device is not duplicated")
+expect(androidDisplayDevices([phoneOK], selectedSerial: nil) == [phoneOK], "no selection leaves devices unchanged")
 for state in ["unauthorized", "offline", "no permissions"] {
     let blocked = AndroidDevice(serial: "A1", state: state, model: "Pixel", isUSB: true)
-    expect(androidMirrorPhase(for: blocked, selectedSerial: "A1") == .notConnected, "\(state) device is not connected")
+    expect(androidMirrorPhase(for: blocked, selectedSerial: "B2") == .notConnected, "\(state) device is not connected")
 }
 expect(androidStepsProminent(devices: []), "setup steps shown with no devices")
 expect(androidStepsProminent(devices: [AndroidDevice(serial: "A1", state: "unauthorized", model: "Pixel", isUSB: true)]), "setup steps shown when none authorized")

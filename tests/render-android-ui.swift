@@ -13,10 +13,10 @@ struct Fixture {
 let pixel = AndroidDevice(serial: "A1", state: "device", model: "Pixel 11 Pro with a very long model name", isUSB: true)
 let locked = AndroidDevice(serial: "B2", state: "unauthorized", model: "Galaxy S30", isUSB: true)
 let fixtures = [
-    Fixture(name: "no-device", devices: [], selected: nil, status: "No authorized USB device. Check the four steps below."),
+    Fixture(name: "no-device", devices: [], selected: nil, status: ""),
     Fixture(name: "unauthorized", devices: [locked], selected: nil, status: "Galaxy S30: Not authorized. Follow the steps below, then click Refresh."),
-    Fixture(name: "connected-idle", devices: [pixel], selected: nil, status: "Choose an Android device to start."),
-    Fixture(name: "mirroring", devices: [pixel, locked], selected: "A1", status: "Pixel 11 is open in That Mirroring. Use the Mac mouse and keyboard."),
+    Fixture(name: "connected-idle", devices: [pixel], selected: nil, status: ""),
+    Fixture(name: "mirroring", devices: [pixel, locked], selected: "A1", status: ""),
 ]
 
 @MainActor func render() {

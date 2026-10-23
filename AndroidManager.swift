@@ -3,6 +3,10 @@ import Darwin
 
 // This object owns only its launched scrcpy Process. The shared adb server is
 // never killed (other apps may be using it).
+private func backupToolsNote(_ status: String) -> String {
+    localizedText("%@ (Using backup tools.)", status).trimmingCharacters(in: .whitespaces)
+}
+
 final class AndroidManager: ObservableObject {
     @Published private(set) var devices: [AndroidDevice] = []
     @Published private(set) var selectedSerial: String?
@@ -52,10 +56,9 @@ final class AndroidManager: ObservableObject {
                     self.isRefreshing = false
                     self.devices = ok ? parseADBDevices(text) : []
                     if self.mirror == nil {
-                        self.status = !ok ? localizedText("Can't list Android devices. Check the connection, then click Refresh.") :
-                            self.devices.contains(where: \.isAuthorized) ? localizedText("Choose an Android device to start.") : localizedText("No authorized USB device. Check the four steps below.")
+                        self.status = ok ? "" : localizedText("Can't list Android devices. Check the connection, then click Refresh.")
+                        if tools.isFallback { self.status = backupToolsNote(self.status) }
                     }
-                    if tools.isFallback { self.status = localizedText("%@ (Using backup tools.)", self.status) }
                 }
             } catch {
                 DispatchQueue.main.async {
@@ -95,7 +98,7 @@ final class AndroidManager: ObservableObject {
                 self.mirror = nil; self.outputPipe = nil; self.selectedSerial = nil
                 self.errorLock.lock(); let error = self.lastError; self.errorLock.unlock()
                 if process.terminationStatus == 0 {
-                    self.status = localizedText("Android mirroring is off.")
+                    self.status = ""
                 } else if error.localizedCaseInsensitiveContains("unauthorized") {
                     self.status = localizedText("Allow USB debugging on the phone. Unlock it and allow this Mac.")
                 } else {
@@ -108,8 +111,7 @@ final class AndroidManager: ObservableObject {
             mirror = process; outputPipe = pipe
             try process.run()
             selectedSerial = device.serial
-            status = localizedText("%@ is open in That Mirroring. Use the Mac mouse and keyboard.", device.model)
-            if tools.isFallback { status = localizedText("%@ (Using backup tools.)", status) }
+            status = tools.isFallback ? backupToolsNote("") : ""
         } catch {
             mirror = nil; outputPipe = nil
             pipe.fileHandleForReading.readabilityHandler = nil
@@ -125,7 +127,7 @@ final class AndroidManager: ObservableObject {
         terminateOwnedProcess(process)
         outputPipe?.fileHandleForReading.readabilityHandler = nil
         outputPipe = nil
-        status = localizedText("Android mirroring is off.")
+        status = ""
     }
     func shutdown() {
         stopped = true; refreshTimer?.invalidate(); refreshTimer = nil; stopMirror()
@@ -173,7 +175,9 @@ struct AndroidSetupContent: View {
     private var content: some View {
         VStack(alignment: .leading, spacing: 22) {
             Label("Android over USB", systemImage: "smartphone").font(.system(size: 26, weight: .bold))
-            Text(status).font(bodyFont).textSelection(.enabled).fixedSize(horizontal: false, vertical: true)
+            if !status.isEmpty {
+                Text(status).font(bodyFont).textSelection(.enabled).fixedSize(horizontal: false, vertical: true)
+            }
             deviceSection
             if androidStepsProminent(devices: devices) {
                 Text(localizedText(androidConnectionSteps)).font(bodyFont).lineSpacing(7).fixedSize(horizontal: false, vertical: true)
@@ -221,10 +225,11 @@ struct AndroidSetupContent: View {
                 Button { onRefresh() } label: { Label("Refresh", systemImage: "arrow.clockwise").font(bodyFont) }
                     .disabled(isRefreshing)
             }
-            if devices.isEmpty {
+            let shown = androidDisplayDevices(devices, selectedSerial: selectedSerial)
+            if shown.isEmpty {
                 deviceCard(placeholder, title: localizedText("No Android device"))
             } else {
-                ForEach(devices) { deviceCard($0, title: $0.model) }
+                ForEach(shown) { deviceCard($0, title: $0.model) }
             }
         }
     }
@@ -263,8 +268,6 @@ struct AndroidSetupContent: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(RoundedRectangle(cornerRadius: 14).fill(Color.white.opacity(0.06)))
         .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.white.opacity(0.14), lineWidth: 1))
-        .contentShape(RoundedRectangle(cornerRadius: 14))
-        .onTapGesture { if phase != .notConnected { action() } }
     }
 
     private func pill(_ phase: AndroidMirrorPhase) -> some View {
