@@ -24,6 +24,22 @@
 "English" = "English";
 "Reopen the app to apply." = "重新開啟後生效。";
 
+"Display" = "顯示";
+"Show PGM Monitor" = "顯示 PGM 監看";
+"Show Phone Mirror" = "顯示手機投影";
+"PGM Screen" = "PGM 監看螢幕";
+"Phone Screen" = "手機投影螢幕";
+"Screen %d" = "螢幕 %d";
+"Native (1:1)" = "原生解析度（1:1）";
+"Fit to Screen" = "縮放全畫面";
+"%d × %d" = "%d × %d";
+"No picture yet." = "尚未收到畫面。";
+"The picture stopped." = "畫面停住了。";
+"Waiting for the Thatcaster PGM window." = "尚未找到 Thatcaster 的 PGM 監看視窗。";
+"Allow screen recording in System Settings, then show the monitor again." = "請到系統設定允許螢幕錄製，再打開監看。";
+"Press 1 for native pixels. Press F to fit the screen. Drag to pan when the picture is larger than the screen. Press Esc to close." = "按 1 顯示原始像素。按 F 縮放成全畫面。畫面比螢幕大時，可以拖曳移動。按 Esc 關閉。";
+"Info" = "說明";
+
 "Connect an iPhone, iPad, or Android" = "連接 iPhone、iPad 或 Android";
 "For iPhone or iPad, plug in USB, unlock, and trust this Mac.\nFor a capture card or camera, choose it in the Device menu." = "iPhone 或 iPad：接上 USB、解鎖，並信任這台 Mac。\n擷取卡或相機：到「裝置」選單選擇。";
 "Android Setup and Devices" = "Android 連線步驟與裝置";

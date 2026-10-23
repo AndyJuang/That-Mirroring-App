@@ -6,7 +6,7 @@ plist = plistlib.loads((app/'Contents/Info.plist').read_bytes())
 assert plist['CFBundleDisplayName'] == 'That Mirroring'
 assert plist['CFBundleDevelopmentRegion'] == 'en'
 assert plist['CFBundleLocalizations'] == ['en', 'zh-Hant']
-assert 'NSScreenCaptureUsageDescription' not in plist
+assert 'save a recording' in plist.get('NSScreenCaptureUsageDescription', '')
 def load_strings(path):
     xml = subprocess.check_output(['plutil', '-convert', 'xml1', '-o', '-', str(path)])
     return plistlib.loads(xml)
@@ -21,6 +21,8 @@ assert packaged[('zh-Hant', 'Localizable.strings')]['Language'] == '語言'
 assert packaged[('zh-Hant', 'Localizable.strings')]['%@ (Screen)'] == '%@（畫面）'
 assert packaged[('en', 'Localizable.strings')]['Follow System'] == 'Follow System'
 assert packaged[('zh-Hant', 'InfoPlist.strings')]['NSCameraUsageDescription'] != packaged[('en', 'InfoPlist.strings')]['NSCameraUsageDescription']
+assert packaged[('en', 'InfoPlist.strings')]['NSScreenCaptureUsageDescription'] == plist['NSScreenCaptureUsageDescription']
+assert packaged[('zh-Hant', 'InfoPlist.strings')]['NSScreenCaptureUsageDescription'] != packaged[('en', 'InfoPlist.strings')]['NSScreenCaptureUsageDescription']
 helper = root/'ThatMirroringAndroid.app'
 scrcpy = helper/'Contents/MacOS/scrcpy'
 assert not (root/'scrcpy').exists(), 'flat scrcpy must not remain'
