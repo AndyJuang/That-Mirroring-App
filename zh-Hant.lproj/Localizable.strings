@@ -11,7 +11,6 @@
 "%@ (Screen)" = "%@（畫面）";
 "%@ (Camera)" = "%@（相機）";
 "Android · %@ (%@)" = "Android · %@（%@）";
-"Android · %@" = "Android · %@";
 
 "Highlight" = "點擊效果";
 "None (Off)" = "關閉";
@@ -32,13 +31,24 @@
 
 "Android over USB" = "Android USB 鏡像";
 "Refresh" = "重新整理";
-"Window options apply the next time you connect." = "視窗選項會在下次連線時套用。";
+"Window Options (Applied the Next Time Mirroring Starts)" = "視窗選項（下次開始鏡像時套用）";
+"Android Devices" = "Android 裝置";
+"Connection Guide" = "連線教學";
+"Mirror Window Tips" = "鏡像視窗小提示";
+"Press F11 or Option-F in the mirror window to toggle full screen." = "在鏡像視窗按 F11 或 Option＋F，可切換全螢幕。";
+"Closing the mirror window or quitting That Mirroring stops mirroring." = "關閉鏡像視窗，或結束 That Mirroring，就會停止鏡像。";
+"Use your Mac mouse and keyboard to control the phone." = "用 Mac 的滑鼠與鍵盤操作手機。";
+"Audio is off by default. Some older phones can't send audio." = "聲音預設關閉。部分舊手機無法傳送聲音。";
+"No Android device" = "找不到 Android 裝置";
+"Not Connected" = "未連線";
+"Connected · Not Mirroring" = "已連線・未鏡像";
+"Mirroring" = "鏡像中";
+"Start Mirroring" = "開始鏡像";
+"Stop Mirroring" = "停止鏡像";
 "Keep Window on Top" = "視窗置頂";
 "Open in Full Screen" = "以全螢幕開啟";
 "Play Android Audio" = "播放 Android 聲音";
 "Turn Off Phone Screen" = "投影時關閉手機螢幕";
-"Use your mouse and keyboard to control the phone." = "可用滑鼠與鍵盤操作手機。";
-"In the mirror window, press F11 or Option-F for full screen. Closing the window stops mirroring. Quitting That Mirroring also stops it. Audio is off by default. Some older phones cannot send audio." = "在鏡像視窗按 F11 或 Option＋F 可切換全螢幕。關閉視窗會停止鏡像。結束 That Mirroring 也會停止。聲音預設關閉。部分舊手機無法傳送聲音。";
 "Back to iPhone, iPad, or Capture Card" = "返回 iPhone、iPad 或擷取卡";
 
 "Connected over USB" = "USB 已連線";

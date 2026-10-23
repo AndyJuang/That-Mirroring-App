@@ -139,34 +139,145 @@ final class AndroidManager: ObservableObject {
 struct AndroidSetupView: View {
     @ObservedObject var manager: AndroidManager
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
-                Label("Android over USB", systemImage: "smartphone").font(.title2.bold())
-                Text(manager.status).textSelection(.enabled)
-                Text("Use your mouse and keyboard to control the phone.").font(.callout).foregroundStyle(.secondary)
-                ForEach(manager.devices) { device in
-                    Button { manager.start(device) } label: {
-                        HStack {
-                            Text(localizedText("Android · %@", device.model))
-                            Spacer()
-                            Text(device.statusLabel).foregroundStyle(.secondary)
-                        }
+        AndroidSetupContent(
+            devices: manager.devices, selectedSerial: manager.selectedSerial, status: manager.status,
+            isRefreshing: manager.isRefreshing, options: $manager.options,
+            onStart: { manager.start($0) }, onStop: { manager.stopMirror() }, onRefresh: { manager.refresh() },
+            onBack: { manager.stopMirror(); manager.showSetup = false })
+    }
+}
+
+struct AndroidSetupContent: View {
+    let devices: [AndroidDevice]
+    let selectedSerial: String?
+    let status: String
+    let isRefreshing: Bool
+    @Binding var options: AndroidWindowOptions
+    var scrolls = true
+    let onStart: (AndroidDevice) -> Void
+    let onStop: () -> Void
+    let onRefresh: () -> Void
+    let onBack: () -> Void
+    @ViewState private var showTips = false
+    @ViewState private var showGuide = false
+
+    private let bodyFont = Font.system(size: 15)
+    private let placeholder = AndroidDevice(serial: "", state: "", model: "", isUSB: false)
+
+    var body: some View {
+        Group {
+            if scrolls { ScrollView { content } } else { content }
+        }.frame(minWidth: 380, minHeight: 420).preferredColorScheme(.dark)
+    }
+
+    private var content: some View {
+        VStack(alignment: .leading, spacing: 22) {
+            Label("Android over USB", systemImage: "smartphone").font(.system(size: 26, weight: .bold))
+            Text(status).font(bodyFont).textSelection(.enabled).fixedSize(horizontal: false, vertical: true)
+            deviceSection
+            if androidStepsProminent(devices: devices) {
+                Text(localizedText(androidConnectionSteps)).font(bodyFont).lineSpacing(7).fixedSize(horizontal: false, vertical: true)
+            } else {
+                HStack(spacing: 8) {
+                    Text("Connection Guide").font(.system(size: 17, weight: .semibold))
+                    infoButton(isPresented: $showGuide, label: localizedText("Connection Guide")) {
+                        Text(localizedText(androidConnectionSteps)).font(bodyFont).lineSpacing(6)
+                            .fixedSize(horizontal: false, vertical: true).frame(width: 320, alignment: .leading).padding(16)
                     }
                 }
-                Text(localizedText(androidConnectionSteps)).font(.body).lineSpacing(6).fixedSize(horizontal: false, vertical: true)
-                HStack {
-                    Button("Refresh") { manager.refresh() }.disabled(manager.isRefreshing)
-                    if manager.selectedSerial != nil { Button("Stop Android Mirroring") { manager.stopMirror() } }
+            }
+            Divider()
+            VStack(alignment: .leading, spacing: 12) {
+                Text("Window Options (Applied the Next Time Mirroring Starts)").font(.system(size: 17, weight: .semibold))
+                    .fixedSize(horizontal: false, vertical: true)
+                Toggle("Keep Window on Top", isOn: $options.alwaysOnTop)
+                Toggle("Open in Full Screen", isOn: $options.fullscreen)
+                Toggle("Play Android Audio", isOn: $options.audio)
+                Toggle("Turn Off Phone Screen", isOn: $options.turnScreenOff)
+            }.font(bodyFont)
+            Button("Back to iPhone, iPad, or Capture Card", action: onBack)
+                .font(bodyFont).controlSize(.large).keyboardShortcut(.cancelAction)
+        }
+        .padding(26)
+        .frame(maxWidth: 640, alignment: .leading)
+        .frame(maxWidth: .infinity, alignment: .center)
+    }
+
+    private var deviceSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 8) {
+                Text("Android Devices").font(.system(size: 17, weight: .semibold))
+                infoButton(isPresented: $showTips, label: localizedText("Mirror Window Tips")) {
+                    VStack(alignment: .leading, spacing: 10) {
+                        Text("Mirror Window Tips").font(.system(size: 17, weight: .semibold))
+                        Text("Press F11 or Option-F in the mirror window to toggle full screen.")
+                        Text("Closing the mirror window or quitting That Mirroring stops mirroring.")
+                        Text("Use your Mac mouse and keyboard to control the phone.")
+                        Text("Audio is off by default. Some older phones can't send audio.")
+                    }.font(bodyFont).fixedSize(horizontal: false, vertical: true).frame(width: 320, alignment: .leading).padding(16)
                 }
-                Divider()
-                Text("Window options apply the next time you connect.").font(.headline)
-                Toggle("Keep Window on Top", isOn: $manager.options.alwaysOnTop)
-                Toggle("Open in Full Screen", isOn: $manager.options.fullscreen)
-                Toggle("Play Android Audio", isOn: $manager.options.audio)
-                Toggle("Turn Off Phone Screen", isOn: $manager.options.turnScreenOff)
-                Text("In the mirror window, press F11 or Option-F for full screen. Closing the window stops mirroring. Quitting That Mirroring also stops it. Audio is off by default. Some older phones cannot send audio.").font(.callout).foregroundStyle(.secondary)
-                Button("Back to iPhone, iPad, or Capture Card") { manager.stopMirror(); manager.showSetup = false }
-            }.padding(24)
-        }.frame(minWidth: 380, minHeight: 420).preferredColorScheme(.dark)
+                Spacer()
+                if isRefreshing { ProgressView().controlSize(.small) }
+                Button { onRefresh() } label: { Label("Refresh", systemImage: "arrow.clockwise").font(bodyFont) }
+                    .disabled(isRefreshing)
+            }
+            if devices.isEmpty {
+                deviceCard(placeholder, title: localizedText("No Android device"))
+            } else {
+                ForEach(devices) { deviceCard($0, title: $0.model) }
+            }
+        }
+    }
+
+    private func infoButton<Popover: View>(isPresented: Binding<Bool>, label: String, @ViewBuilder content: @escaping () -> Popover) -> some View {
+        Button { isPresented.wrappedValue.toggle() } label: { Image(systemName: "info.circle").font(.system(size: 17)) }
+            .buttonStyle(.plain).accessibilityLabel(label)
+            .popover(isPresented: isPresented, arrowEdge: .bottom, content: content)
+    }
+
+    private func deviceCard(_ device: AndroidDevice, title: String) -> some View {
+        let phase = androidMirrorPhase(for: device, selectedSerial: selectedSerial)
+        let action = { phase == .mirroring ? onStop() : onStart(device) }
+        let info = HStack(alignment: .top, spacing: 12) {
+            Image(systemName: "smartphone").font(.system(size: 28)).foregroundStyle(.secondary).frame(width: 30)
+            VStack(alignment: .leading, spacing: 6) {
+                Text(title).font(.system(size: 17, weight: .semibold)).lineLimit(2)
+                pill(phase)
+                if phase == .notConnected, !device.state.isEmpty {
+                    Text(device.statusLabel).font(.system(size: 14)).foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+        }
+        let button = Button(action: action) {
+            Text(phase == .mirroring ? localizedText("Stop Mirroring") : localizedText("Start Mirroring")).font(.system(size: 16, weight: .semibold)).padding(.horizontal, 10)
+        }
+        .buttonStyle(.borderedProminent).controlSize(.large)
+        .tint(phase == .mirroring ? .red : .accentColor)
+        .disabled(phase == .notConnected)
+        return ViewThatFits(in: .horizontal) {
+            HStack(alignment: .center, spacing: 12) { info; Spacer(minLength: 8); button.fixedSize() }
+            VStack(alignment: .leading, spacing: 14) { info; button }
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(RoundedRectangle(cornerRadius: 14).fill(Color.white.opacity(0.06)))
+        .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.white.opacity(0.14), lineWidth: 1))
+        .contentShape(RoundedRectangle(cornerRadius: 14))
+        .onTapGesture { if phase != .notConnected { action() } }
+    }
+
+    private func pill(_ phase: AndroidMirrorPhase) -> some View {
+        let (text, color): (String, Color) = {
+            switch phase {
+            case .notConnected: return (localizedText("Not Connected"), .gray)
+            case .connectedIdle: return (localizedText("Connected · Not Mirroring"), .blue)
+            case .mirroring: return (localizedText("Mirroring"), .green)
+            }
+        }()
+        return Text(text).font(.system(size: 14, weight: .semibold)).foregroundStyle(color == .gray ? Color.secondary : color)
+            .padding(.horizontal, 10).padding(.vertical, 3)
+            .background(Capsule().fill(color.opacity(0.18)))
+            .overlay(Capsule().stroke(color.opacity(0.5), lineWidth: 1))
     }
 }
